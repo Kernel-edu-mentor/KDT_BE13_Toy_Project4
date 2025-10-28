@@ -1,7 +1,7 @@
 # team1_qa/api.py
 from fastapi import APIRouter, UploadFile, HTTPException
-from team1_qa.models import UploadResponse, QARequest, QAResponse
-from team1_qa.workflow import upload_workflow, qa_workflow
+from paper_qa.models import UploadResponse, QARequest, QAResponse
+from paper_qa.workflow import upload_workflow, qa_workflow
 from config import settings
 import shutil
 import os

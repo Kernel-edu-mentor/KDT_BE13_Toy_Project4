@@ -1,10 +1,10 @@
 # team2_problem/workflow.py
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Dict
-from team2_problem.models import Problem
+from paper_problem.models import Problem
 from shared.chroma_client import chroma_client
-from team2_problem.generators.beginner import beginner_generator
-from team2_problem.validators.problem_validator import problem_validator
+from paper_problem.generators.beginner import beginner_generator
+from paper_problem.validators.problem_validator import problem_validator
 import logging
 
 logger = logging.getLogger(__name__)

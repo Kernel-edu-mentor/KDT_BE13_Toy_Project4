@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Dict
 from shared.chroma_client import chroma_client
 from shared.upstage_client import upstage_client
-from team1_qa.parsers.pdf_parser import pdf_parser
+from paper_qa.parsers.pdf_parser import pdf_parser
 from langchain.schema import HumanMessage
 import logging
 import time

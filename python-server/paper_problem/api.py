@@ -1,7 +1,7 @@
 # team2_problem/api.py
 from fastapi import APIRouter, HTTPException
-from team2_problem.models import ProblemRequest, ProblemResponse
-from team2_problem.workflow import problem_workflow
+from paper_problem.models import ProblemRequest, ProblemResponse
+from paper_problem.workflow import problem_workflow
 
 router = APIRouter()
 
@@ -10,7 +10,7 @@ router = APIRouter()
 async def generate_problems(request: ProblemRequest):
     """난이도별 문제 생성"""
 
-    try:
+    try: 
         result = await problem_workflow.ainvoke(
             {
                 "material_id": request.material_id,

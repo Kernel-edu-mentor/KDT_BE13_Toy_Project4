@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI
-from team1_qa.api import router as qa_router
-from team2_problem.api import router as problem_router
+from paper_qa.api import router as qa_router
+from paper_problem.api import router as problem_router
 import logging
 
 # 로깅 설정

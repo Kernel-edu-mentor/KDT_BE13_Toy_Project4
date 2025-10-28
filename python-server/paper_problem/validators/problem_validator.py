@@ -1,5 +1,5 @@
 # team2_problem/validators/problem_validator.py
-from team2_problem.models import Problem
+from paper_problem.models import Problem
 from typing import List, Tuple
 import logging
 

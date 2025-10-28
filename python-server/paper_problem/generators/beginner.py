@@ -1,7 +1,7 @@
 # team2_problem/generators/beginner.py
 from shared.upstage_client import upstage_client
 from langchain.schema import HumanMessage
-from team2_problem.models import Problem
+from paper_problem.models import Problem
 from typing import List
 import json
 import logging
