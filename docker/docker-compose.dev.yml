@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: edumentor-postgres
+    environment:
+      POSTGRES_DB: edumentor
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d edumentor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - edumentor-network
+
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: edumentor-chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - edumentor-network
+
+  # Python AI Server (통합)
+  python-server:
+    build:
+      context: ./python-server
+      dockerfile: Dockerfile
+    container_name: edumentor-python
+    ports:
+      - "8000:8000"
+    environment:
+      - UPSTAGE_API_KEY=${UPSTAGE_API_KEY}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - DATABASE_URL=postgresql://admin:password@postgres:5432/edumentor
+      - SHARED_UPLOAD_DIR=/app/shared/uploads  # 공유 디렉토리 경로
+    depends_on:
+      chromadb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - shared-uploads:/app/shared/uploads  # ✨ 공유 볼륨 마운트
+    networks:
+      - edumentor-network
+
+  # Spring Boot Backend
+  spring-backend:
+    build:
+      context: ./spring-backend
+      dockerfile: Dockerfile
+    container_name: edumentor-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/edumentor
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - PYTHON_AI_SERVICE_URL=http://python-server:8000
+      - FILE_UPLOAD_DIR=/app/shared/uploads  # 공유 디렉토리 경로
+    depends_on:
+      postgres:
+        condition: service_healthy
+      python-server:
+        condition: service_started
+    volumes:
+      - shared-uploads:/app/shared/uploads  # ✨ 공유 볼륨 마운트 (Python과 동일)
+    networks:
+      - edumentor-network
+
+volumes:
+  postgres_data:
+    name: edumentor_postgres_data
+  chroma_data:
+    name: edumentor_chroma_data
+  shared-uploads:  # ✨ 신규 추가: 파일 공유를 위한 볼륨
+    name: edumentor_shared_uploads
+
+networks:
+  edumentor-network:
+    name: edumentor-network
+    driver: bridge

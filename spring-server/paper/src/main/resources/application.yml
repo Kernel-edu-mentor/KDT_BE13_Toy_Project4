@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: paper
+  profiles:
+    active: local  # ?? ? ???
+---
+spring:
+  application:
+    name: paper
+
+  # Database
+  datasource:
+    url: jdbc:postgresql://localhost:5432/edumentor
+    username: admin
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # File Upload (300MB 지원)
+  servlet:
+    multipart:
+      max-file-size: 300MB
+      max-request-size: 300MB
+      enabled: true
+      file-size-threshold: 10MB  # 메모리 임계값
+
+# Python AI Server
+python:
+  ai-service:
+    url: http://localhost:8000
+
+# ✨ File Storage 설정
+file:
+  upload-dir: /app/shared/uploads  # Docker에서는 이 경로
+  allowed-extensions: pdf  # PDF만 허용
+  max-size: 314572800  # 300MB in bytes
+
+# Server 설정 (대용량 파일 처리)
+server:
+  tomcat:
+    max-swallow-size: 320MB  # Tomcat 버퍼
+    connection-timeout: 180000  # 3분 (180초)
+
+# JWT
+jwt:
+  secret: your-secret-key-change-this-in-production
+  expiration: 86400000  # 24 hours
+
+# Server
+server:
+  port: 8080
+
+# Logging
+logging:
+  level:
+    com.edumentor: DEBUG
+    org.springframework.web: INFO

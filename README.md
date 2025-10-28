@@ -1,20 +1,55 @@
-# 토이 프로젝트 4 : RAG를 이용하여 Knowledge Base와 Web Search를 활용한 정확한 지식 기반 답변을 하는 Agent 시스템 개발
-### [프로젝트 개요] 
-- **프로젝트 명** : RAG를 이용하여 Knowledge Base와 Web Search를 활용한 정확한 지식 기반 답변을 하는 Agent 시스템 개발
-- **상세 내용 :** [프로젝트 RFP 노션 링크](https://www.notion.so/Toy-Project-4-26c9047c353d8064b6abe1419d3d6d1a)
-- **수행 및 결과물 제출 기한** : 10/24 (금) ~ 11/6 (목) 18:00
-- **코드리뷰 기한** : 11/10 (월) ~ 11/17 (월), 1주 간 진행 
+### 1-1. **네이밍 규칙 (Naming Rules)**
 
+- **변수 및 함수 이름**: CamelCase 사용 (ex: `getUserData`, `userInfo`)
+- **클래스 이름**: PascalCase 사용 (ex: `UserProfile`, `ProductManager`)
+- **상수**: UPPER_SNAKE_CASE 사용 (ex: `MAX_RETRY_COUNT`)0
+- **파일 이름**: 소문자 및 hyphen(-) 사용 (ex: `user-controller.js`, `app-config.ts`)
 
-### [프로젝트 진행 및 제출 방법]
-- 본 패스트캠퍼스 Github의 Repository를 각 조별의 Github Repository를 생성 후 Fork합니다.
-    - 패스트캠퍼스 깃헙은 Private 형태 (Public 불가)
-- 조별 레포의 최종 branch → 패스트캠퍼스 업스트림 Repository의 main branch의 **PR 상태**로 제출합니다.
-    - **PR TITLE : N조 최종 제출**
-    - Pull Request 링크를 LMS로도 제출해 주셔야 최종 제출 완료 됩니다. (제출자: 조별 대표자 1인)
-    - LMS를 통한 과제 미제출 시 점수가 부여되지 않습니다. 
-- PR 제출 시 유의사항
-    - 프로젝트 진행 결과 및 과업 수행 내용은 README.md에 상세히 작성 부탁 드립니다. 
-    - 멘토님들께서 어플리케이션 실행을 위해 확인해야 할 환경설정 값 등도 반드시 PR 부가 설명란 혹은 README.md에 작성 부탁 드립니다.
-    - **Pull Request에서 제출 후 절대 병합(Merge)하지 않도록 주의하세요!**
-    - 수행 및 제출 과정에서 문제가 발생한 경우, 바로 강사님에게 얘기하세요! 
+### 1-2. **들여쓰기 및 공백 (Indentation & Spacing)**
+
+- **탭 크기**: Tabs
+- **라인 길이**: 80자 제한 권장
+- **함수 간 공백**: 함수와 함수 사이 한 줄 공백 유지
+- **중괄호 위치**: 중괄호는 한 줄 아래
+- (ex:
+    
+    `if (condition) {`
+    
+             `...`    
+    
+    `}`            ) 
+    
+
+### 1-3. **주석 규칙 (Commenting Rules)**
+
+- **함수 주석**: 함수 상단에 해당 함수의 목적, 입력값, 반환값 명시
+- **코드 설명 주석**: 코드가 복잡하거나 중요한 부분에 설명 추가
+- 단, 무분별한 주석은 제한
+
+### 1-4. **코드 구조 (Code Structure)**
+
+- **모듈화**: 관련 기능별로 코드를 모듈화 (ex: services, controllers, utils 등)
+    
+    ### 1-5. **Git 전략 & 커밋 컨벤션**
+    
+    - **브랜치 네이밍**
+        
+        ```
+        main       → 운영 배포용
+        develop    → 개발 통합
+        feature/*  → 기능 단위
+        fix/*      → 버그 수정
+        hotfix/*   → 긴급 수정
+        refactor/* -> 코드 리팩토링 
+        ```
+        
+    - **커밋 메시지**
+        
+        ```
+        [Feat] 회원가입 API 추가
+        [Fix] 로그인 비밀번호 검증 오류 수정
+        [Refactor] JWT 토큰 검증 로직 분리
+        [Chore] logback 설정 변경
+        ```
+        
+    
