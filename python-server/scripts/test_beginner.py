@@ -8,6 +8,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from paper_problem.generators.beginner import beginner_generator
 
 async def test_beginner_generator():
+    # 주의: 실제 운영환경에서는 사용자가 업로드한 PDF에서 추출한 내용이 context로 들어옵니다.
+    # 이 테스트에서는 예시 학습 내용을 하드코딩했습니다.
     context = """
     Python 변수와 자료형
     - 변수는 데이터를 저장하는 공간
@@ -17,6 +19,7 @@ async def test_beginner_generator():
     """
 
     print("🧪 초급 문제 생성 테스트 시작...")
+    print("📄 (실제 운영: PDF 기반, 테스트: 하드코딩된 내용)")
     print(f"📝 학습 내용:\n{context}\n")
 
     try:
