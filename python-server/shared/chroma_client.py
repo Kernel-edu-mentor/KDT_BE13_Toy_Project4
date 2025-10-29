@@ -1,8 +1,14 @@
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from typing import List, Dict
-from config import settings
 import logging
+from typing import List, Dict
+
+try:
+    import chromadb  # type: ignore
+    from chromadb.config import Settings as ChromaSettings  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - 테스트 환경 대비
+    chromadb = None
+    ChromaSettings = None
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +27,16 @@ class ChromaClient:
         if self._initialized:
             return
 
-        self.client = chromadb.HttpClient(
+        if chromadb is None:
+            logger.warning("ChromaDB not available; using stub client")
+            self.client = None
+            self._initialized = True
+            return
+
+        self.client = chromadb.HttpClient(  # type: ignore[union-attr]
             host=settings.CHROMA_HOST,
             port=settings.CHROMA_PORT,
-            settings=ChromaSettings(
+            settings=ChromaSettings(  # type: ignore[misc]
                 anonymized_telemetry=False
             )
         )
@@ -33,6 +45,9 @@ class ChromaClient:
 
     def get_or_create_collection(self, name: str):
         """컬렉션 생성 또는 가져오기"""
+        if self.client is None:
+            raise RuntimeError("ChromaDB 클라이언트가 초기화되지 않았습니다.")
+
         return self.client.get_or_create_collection(
             name=name,
             metadata={"hnsw:space": "cosine"}
@@ -47,6 +62,9 @@ class ChromaClient:
         embeddings: List[List[float]] = None
     ):
         """문서 추가"""
+        if self.client is None:
+            raise RuntimeError("ChromaDB 클라이언트가 초기화되지 않았습니다.")
+
         collection = self.get_or_create_collection(collection_name)
 
         if embeddings:
@@ -72,6 +90,9 @@ class ChromaClient:
         filter_dict: Dict = None
     ):
         """유사도 검색"""
+        if self.client is None:
+            raise RuntimeError("ChromaDB 클라이언트가 초기화되지 않았습니다.")
+
         collection = self.get_or_create_collection(collection_name)
 
         return collection.query(
