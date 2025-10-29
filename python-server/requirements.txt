@@ -7,7 +7,6 @@
   langchain-text-splitters>=0.3.2
 
   # Upstage API
-  upstage>=0.1
   langchain-upstage>=0.1
 
   # Vector DB

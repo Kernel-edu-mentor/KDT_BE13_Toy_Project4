@@ -4,7 +4,8 @@
 cd KDT_BE13_Toy_Project4
 
 # 2. DB만 Docker로 실행
-docker-compose -f /docker/docker-compose.dev.yml up -d
+# docker-compose -f /docker/docker-compose.dev.yml up -d
+docker-compose -f docker-compose.dev.yml up -d
 
 # 3. 헬스체크 확인
 docker-compose -f /docker/docker-compose.dev.yml ps

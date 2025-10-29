@@ -1,5 +1,4 @@
-from upstage import Upstage
-from langchain_upstage import UpstageEmbeddings, ChatUpstage
+from langchain_upstage import UpstageEmbeddings, ChatUpstage, UpstageDocumentParseLoader
 from config import settings
 from typing import List
 import asyncio
@@ -22,7 +21,6 @@ class UpstageClient:
         if self._initialized:
             return
 
-        self.client = Upstage(api_key=settings.UPSTAGE_API_KEY)
         self.embeddings = UpstageEmbeddings(
             api_key=settings.UPSTAGE_API_KEY,
             model="embedding-query"
@@ -32,11 +30,13 @@ class UpstageClient:
 
     async def parse_pdf(self, file_path: str) -> dict:
         """PDF 파싱"""
-        result = await asyncio.to_thread(
-            self.client.document_parse,
-            file=file_path
+        loader = UpstageDocumentParseLoader(
+            file_path=file_path,
+            api_key=settings.UPSTAGE_API_KEY,
+            split="page"
         )
-        return result
+        docs = await asyncio.to_thread(loader.load)
+        return {"documents": [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs]}
 
     async def embed_query(self, text: str) -> List[float]:
         """쿼리 임베딩"""
