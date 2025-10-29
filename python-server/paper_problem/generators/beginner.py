@@ -35,17 +35,17 @@ class BeginnerProblemGenerator:
 **출력 형식** (반드시 유효한 JSON 배열):
 [
     {{
-        "question": "변수 name에 '홍길동'을 저장하는 코드를 작성하시오",
-        "answer": "name = '홍길동'",
-        "hints": ["변수명 = 값 형식으로 작성", "문자열은 따옴표로 감싸기"],
+        "question": "학습 내용의 기본 개념을 확인하는 간단한 코딩 문제",
+        "answer": "예시 정답 코드 (5-10줄 수준)",
+        "hints": ["개념 이해 힌트", "구현 방법 힌트"],
         "difficulty_score": 1,
         "problem_type": "CODING",
-        "test_cases": [{{"input": "", "expected": "name = '홍길동'"}}]
+        "test_cases": [{{"input": "테스트 입력값", "expected": "예상 출력값"}}]
     }},
     {{
-        "question": "정수형 변수와 실수형 변수의 차이를 설명하시오",
-        "answer": "정수형(int)은 소수점이 없는 숫자, 실수형(float)은 소수점이 있는 숫자",
-        "hints": ["int와 float의 차이", "예시를 들어 설명"],
+        "question": "학습 내용의 핵심 개념을 설명하는 문제",
+        "answer": "개념에 대한 명확한 설명 답변",
+        "hints": ["개념 정의", "활용 예시"],
         "difficulty_score": 2,
         "problem_type": "SHORT_ANSWER"
     }}
@@ -56,7 +56,9 @@ class BeginnerProblemGenerator:
 2. difficulty_score는 1, 2, 3 중 하나의 숫자만 (1이 가장 쉬움)
 3. problem_type은 "CODING" 또는 "SHORT_ANSWER" 중 하나만
 4. test_cases는 CODING 타입일 때만 포함 (SHORT_ANSWER는 생략)
-5. 주석이나 설명 없이 순수 JSON만 출력"""
+5. 주석이나 설명 없이 순수 JSON만 출력
+
+**필수**: 위 예시는 JSON 구조만 참고하고, 실제 문제 내용은 반드시 제공된 학습 내용에서만 생성할 것!"""
 
         response = await self.llm.ainvoke([HumanMessage(content=prompt)])
 
