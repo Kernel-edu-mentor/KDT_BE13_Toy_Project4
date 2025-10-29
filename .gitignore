@@ -16,4 +16,3 @@ python-server/**/*.pyc
 # IDE
 .idea/
 .vscode/
-.DS_Store
