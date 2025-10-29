@@ -1,7 +1,12 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).resolve().parent / ".env")
+    )
 
     # Upstage API
     UPSTAGE_API_KEY: str
@@ -15,5 +20,6 @@ class Settings(BaseSettings):
 
     # Cache
     CACHE_SIZE: int = 100
+
 
 settings = Settings()
