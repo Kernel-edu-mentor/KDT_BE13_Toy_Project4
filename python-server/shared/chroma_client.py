@@ -1,4 +1,3 @@
-# shared/chroma_client.py
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from typing import List, Dict
@@ -6,7 +5,6 @@ from config import settings
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class ChromaClient:
     """ChromaDB 클라이언트 (팀1, 팀2 공유)"""
@@ -26,7 +24,9 @@ class ChromaClient:
         self.client = chromadb.HttpClient(
             host=settings.CHROMA_HOST,
             port=settings.CHROMA_PORT,
-            settings=ChromaSettings(anonymized_telemetry=False),
+            settings=ChromaSettings(
+                anonymized_telemetry=False
+            )
         )
         self._initialized = True
         logger.info("ChromaDB client initialized")
@@ -34,7 +34,8 @@ class ChromaClient:
     def get_or_create_collection(self, name: str):
         """컬렉션 생성 또는 가져오기"""
         return self.client.get_or_create_collection(
-            name=name, metadata={"hnsw:space": "cosine"}
+            name=name,
+            metadata={"hnsw:space": "cosine"}
         )
 
     def add_documents(
@@ -43,17 +44,24 @@ class ChromaClient:
         documents: List[str],
         metadatas: List[Dict],
         ids: List[str],
-        embeddings: List[List[float]] = None,
+        embeddings: List[List[float]] = None
     ):
         """문서 추가"""
         collection = self.get_or_create_collection(collection_name)
 
         if embeddings:
             collection.add(
-                documents=documents, metadatas=metadatas, ids=ids, embeddings=embeddings
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids,
+                embeddings=embeddings
             )
         else:
-            collection.add(documents=documents, metadatas=metadatas, ids=ids)
+            collection.add(
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids
+            )
 
     def search(
         self,
@@ -61,7 +69,7 @@ class ChromaClient:
         query_texts: List[str] = None,
         query_embeddings: List[List[float]] = None,
         n_results: int = 3,
-        filter_dict: Dict = None,
+        filter_dict: Dict = None
     ):
         """유사도 검색"""
         collection = self.get_or_create_collection(collection_name)
@@ -70,9 +78,8 @@ class ChromaClient:
             query_texts=query_texts,
             query_embeddings=query_embeddings,
             n_results=n_results,
-            where=filter_dict,
+            where=filter_dict
         )
-
 
 # 싱글톤 인스턴스
 chroma_client = ChromaClient()

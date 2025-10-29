@@ -1,7 +1,9 @@
-# shared/__init__.py
+"""
+공통 모듈 패키지
+ChromaDB 클라이언트와 Upstage API 클라이언트를 제공합니다.
+"""
 
-# 다른 파일에서 'from shared import chroma_client, upstage_client' 처럼
-# 싱글톤 인스턴스를 직접 임포트할 수 있도록 노출합니다.
+from shared.chroma_client import chroma_client
+from shared.upstage_client import upstage_client
 
-from .chroma_client import chroma_client
-from .upstage_client import upstage_client
+__all__ = ['chroma_client', 'upstage_client']

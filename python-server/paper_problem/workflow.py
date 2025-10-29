@@ -1,14 +1,14 @@
-# team2_problem/workflow.py
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Dict
 from paper_problem.models import Problem
 from shared.chroma_client import chroma_client
 from paper_problem.generators.beginner import beginner_generator
+from paper_problem.generators.intermediate import intermediate_generator
+from paper_problem.generators.advanced import advanced_generator
 from paper_problem.validators.problem_validator import problem_validator
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class ProblemState(TypedDict):
     material_id: int
@@ -20,7 +20,6 @@ class ProblemState(TypedDict):
     validated_problems: List[Problem]
     rejection_reasons: List[str]
 
-
 async def analyze_content_node(state: ProblemState) -> dict:
     """학습 내용 추출"""
     material_id = state["material_id"]
@@ -30,31 +29,28 @@ async def analyze_content_node(state: ProblemState) -> dict:
         collection_name="learning_materials",
         query_texts=["기본 개념 예제"],
         n_results=5,
-        filter_dict={"material_id": material_id},
+        filter_dict={"material_id": material_id}
     )
 
     learning_content = []
-    for i in range(len(results["documents"][0])):
-        learning_content.append(
-            {
-                "content": results["documents"][0][i],
-                "page": results["metadatas"][0][i]["page"],
-            }
-        )
+    for i in range(len(results['documents'][0])):
+        learning_content.append({
+            'content': results['documents'][0][i],
+            'page': results['metadatas'][0][i]['page']
+        })
 
     return {"learning_content": learning_content}
-
 
 async def build_context_node(state: ProblemState) -> dict:
     """컨텍스트 구성"""
     learning_content = state["learning_content"]
 
-    context = "\n\n---\n\n".join(
-        [f"[페이지 {c['page']}]\n{c['content']}" for c in learning_content]
-    )
+    context = "\n\n---\n\n".join([
+        f"[페이지 {c['page']}]\n{c['content']}"
+        for c in learning_content
+    ])
 
     return {"context": context}
-
 
 async def generate_problems_node(state: ProblemState) -> dict:
     """문제 생성"""
@@ -64,20 +60,28 @@ async def generate_problems_node(state: ProblemState) -> dict:
 
     if difficulty == "BEGINNER":
         problems = await beginner_generator.generate(context, problem_count)
-    # elif INTERMEDIATE, ADVANCED...
+    elif difficulty == "INTERMEDIATE":
+        problems = await intermediate_generator.generate(context, problem_count)
+    elif difficulty == "ADVANCED":
+        problems = await advanced_generator.generate(context, problem_count)
+    else:
+        problems = []
 
     return {"generated_problems": problems}
-
 
 async def validate_problems_node(state: ProblemState) -> dict:
     """문제 검증"""
     problems = state["generated_problems"]
     difficulty = state["difficulty"]
 
-    validated, rejected = problem_validator.filter_valid_problems(problems, difficulty)
+    validated, rejected = problem_validator.filter_valid_problems(
+        problems, difficulty
+    )
 
-    return {"validated_problems": validated, "rejection_reasons": rejected}
-
+    return {
+        "validated_problems": validated,
+        "rejection_reasons": rejected
+    }
 
 def create_problem_workflow():
     graph = StateGraph(ProblemState)
@@ -94,6 +98,5 @@ def create_problem_workflow():
     graph.add_edge("validate", END)
 
     return graph.compile()
-
 
 problem_workflow = create_problem_workflow()

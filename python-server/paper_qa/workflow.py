@@ -1,4 +1,3 @@
-# team1_qa/workflow.py
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Dict
 from shared.chroma_client import chroma_client
@@ -10,7 +9,6 @@ import time
 
 logger = logging.getLogger(__name__)
 
-
 # 업로드 State
 class UploadState(TypedDict):
     material_id: int
@@ -18,7 +16,6 @@ class UploadState(TypedDict):
     file_type: str
     parsed_blocks: List[Dict]
     status: str
-
 
 # QA State
 class QAState(TypedDict):
@@ -28,7 +25,6 @@ class QAState(TypedDict):
     answer: str
     sources: List[Dict]
 
-
 # ============ 업로드 워크플로우 ============
 async def parse_document_node(state: UploadState) -> dict:
     """문서 파싱"""
@@ -36,13 +32,12 @@ async def parse_document_node(state: UploadState) -> dict:
     parsed_blocks = await pdf_parser.parse(file_path)
     return {"parsed_blocks": parsed_blocks}
 
-
 async def embed_and_store_node(state: UploadState) -> dict:
     """임베딩 및 ChromaDB 저장"""
     material_id = state["material_id"]
     parsed_blocks = state["parsed_blocks"]
 
-    texts = [block["content"] for block in parsed_blocks]
+    texts = [block['content'] for block in parsed_blocks]
     embeddings = await upstage_client.embed_documents(texts)
 
     documents = []
@@ -50,10 +45,12 @@ async def embed_and_store_node(state: UploadState) -> dict:
     ids = []
 
     for idx, block in enumerate(parsed_blocks):
-        documents.append(block["content"])
-        metadatas.append(
-            {"material_id": material_id, "page": block["page"], "type": block["type"]}
-        )
+        documents.append(block['content'])
+        metadatas.append({
+            'material_id': material_id,
+            'page': block['page'],
+            'type': block['type']
+        })
         ids.append(f"material_{material_id}_block_{idx}")
 
     chroma_client.add_documents(
@@ -61,11 +58,10 @@ async def embed_and_store_node(state: UploadState) -> dict:
         documents=documents,
         metadatas=metadatas,
         ids=ids,
-        embeddings=embeddings,
+        embeddings=embeddings
     )
 
     return {"status": "completed"}
-
 
 def create_upload_workflow():
     graph = StateGraph(UploadState)
@@ -75,7 +71,6 @@ def create_upload_workflow():
     graph.add_edge("parse", "embed_store")
     graph.add_edge("embed_store", END)
     return graph.compile()
-
 
 # ============ QA 워크플로우 ============
 async def retrieve_node(state: QAState) -> dict:
@@ -93,24 +88,21 @@ async def retrieve_node(state: QAState) -> dict:
         collection_name="learning_materials",
         query_embeddings=[query_embedding],
         n_results=3,
-        filter_dict={"material_id": material_id},
+        filter_dict={"material_id": material_id}
     )
 
     retrieved_docs = []
-    for i in range(len(results["documents"][0])):
-        retrieved_docs.append(
-            {
-                "content": results["documents"][0][i],
-                "page": results["metadatas"][0][i]["page"],
-                "distance": results["distances"][0][i],
-            }
-        )
+    for i in range(len(results['documents'][0])):
+        retrieved_docs.append({
+            'content': results['documents'][0][i],
+            'page': results['metadatas'][0][i]['page'],
+            'distance': results['distances'][0][i]
+        })
 
     elapsed = time.time() - start_time
     logger.info(f"⚡ Retrieve time: {elapsed:.3f}s")
 
     return {"retrieved_docs": retrieved_docs}
-
 
 async def generate_answer_node(state: QAState) -> dict:
     """답변 생성 (0.8-1.0초 목표)"""
@@ -119,11 +111,15 @@ async def generate_answer_node(state: QAState) -> dict:
     question = state["question"]
     retrieved_docs = state["retrieved_docs"]
 
-    context = "\n\n---\n\n".join(
-        [f"[페이지 {doc['page']}]\n{doc['content']}" for doc in retrieved_docs]
-    )
+    context = "\n\n---\n\n".join([
+        f"[페이지 {doc['page']}]\n{doc['content']}"
+        for doc in retrieved_docs
+    ])
 
-    llm = upstage_client.get_chat_model(model="solar-1-mini-chat", temperature=0.3)
+    llm = upstage_client.get_chat_model(
+        model="solar-1-mini-chat",
+        temperature=0.3
+    )
 
     prompt = f"""당신은 학습자료 기반 QA 봇입니다.
 
@@ -152,7 +148,6 @@ async def generate_answer_node(state: QAState) -> dict:
 
     return {"answer": answer, "sources": sources}
 
-
 def create_qa_workflow():
     graph = StateGraph(QAState)
     graph.add_node("retrieve", retrieve_node)
@@ -161,7 +156,6 @@ def create_qa_workflow():
     graph.add_edge("retrieve", "generate")
     graph.add_edge("generate", END)
     return graph.compile()
-
 
 # 워크플로우 인스턴스
 upload_workflow = create_upload_workflow()

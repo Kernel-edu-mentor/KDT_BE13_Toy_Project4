@@ -1,4 +1,3 @@
-# team1_qa/api.py
 from fastapi import APIRouter, UploadFile, HTTPException
 from paper_qa.models import UploadResponse, QARequest, QAResponse
 from paper_qa.workflow import upload_workflow, qa_workflow
@@ -9,13 +8,12 @@ import time
 
 router = APIRouter()
 
-
 @router.post("/upload", response_model=UploadResponse)
 async def upload_material(file: UploadFile, material_id: int):
     """학습자료 업로드 및 파싱"""
 
-    file_ext = file.filename.split(".")[-1].lower()
-    if file_ext not in ["pdf"]:
+    file_ext = file.filename.split('.')[-1].lower()
+    if file_ext not in ['pdf']:
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -24,25 +22,27 @@ async def upload_material(file: UploadFile, material_id: int):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    result = await upload_workflow.ainvoke(
-        {"material_id": material_id, "file_path": file_path, "file_type": "pdf"}
-    )
+    result = await upload_workflow.ainvoke({
+        "material_id": material_id,
+        "file_path": file_path,
+        "file_type": "pdf"
+    })
 
     return UploadResponse(
         material_id=material_id,
         status=result["status"],
-        blocks_count=len(result["parsed_blocks"]),
+        blocks_count=len(result["parsed_blocks"])
     )
-
 
 @router.post("/ask", response_model=QAResponse)
 async def ask_question(request: QARequest):
     """질의응답 (1-2초 목표)"""
     start_time = time.time()
 
-    result = await qa_workflow.ainvoke(
-        {"question": request.question, "material_id": request.material_id}
-    )
+    result = await qa_workflow.ainvoke({
+        "question": request.question,
+        "material_id": request.material_id
+    })
 
     response_time = int((time.time() - start_time) * 1000)
 
@@ -54,5 +54,5 @@ async def ask_question(request: QARequest):
     return QAResponse(
         answer=result["answer"],
         sources=result["sources"],
-        response_time_ms=response_time,
+        response_time_ms=response_time
     )

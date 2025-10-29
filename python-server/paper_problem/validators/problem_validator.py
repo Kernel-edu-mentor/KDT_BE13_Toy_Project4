@@ -1,10 +1,8 @@
-# team2_problem/validators/problem_validator.py
 from paper_problem.models import Problem
 from typing import List, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class ProblemValidator:
     def validate(self, problem: Problem, difficulty: str) -> Tuple[bool, str]:
@@ -22,7 +20,7 @@ class ProblemValidator:
         difficulty_ranges = {
             "BEGINNER": (1, 3),
             "INTERMEDIATE": (4, 6),
-            "ADVANCED": (7, 10),
+            "ADVANCED": (7, 10)
         }
 
         min_score, max_score = difficulty_ranges[difficulty]
@@ -32,7 +30,9 @@ class ProblemValidator:
         return True, "Valid"
 
     def filter_valid_problems(
-        self, problems: List[Problem], difficulty: str
+        self,
+        problems: List[Problem],
+        difficulty: str
     ) -> Tuple[List[Problem], List[str]]:
         """유효한 문제만 필터링"""
 
@@ -47,6 +47,5 @@ class ProblemValidator:
                 rejection_reasons.append(reason)
 
         return valid_problems, rejection_reasons
-
 
 problem_validator = ProblemValidator()
