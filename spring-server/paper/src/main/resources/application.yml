@@ -44,7 +44,8 @@ python:
 
 # ✨ File Storage 설정
 file:
-  upload-dir: /app/shared/uploads  # Docker에서는 이 경로
+  upload-dir: ./uploads  # 로컬 디렉토리
+  #upload-dir: /app/shared/uploads  # Docker에서는 이 경로
   allowed-extensions: pdf  # PDF만 허용
   max-size: 314572800  # 300MB in bytes
 
