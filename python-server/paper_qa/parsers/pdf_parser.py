@@ -15,28 +15,32 @@ class PDFParser:
 
         content_blocks = []
 
-        # elements 순회
-        for element in parsed.get("elements", []):
-            element_type = element.get("type")
+        # documents 순회
+        for doc in parsed.get("documents", []):
+            content = doc.get("page_content", "")
+            metadata = doc.get("metadata") or {}
 
-            if element_type == "text":
+            # Upstage 메타데이터에서 페이지 번호 키 확인 (page, page_number 등)
+            page = metadata.get("page") or metadata.get("page_number") or 1
+
+            if content:
                 content_blocks.append(
                     {
                         "type": "text",
-                        "content": element.get("content", ""),
-                        "page": element.get("page", 1),
-                        "category": element.get("category", "paragraph"),
+                        "content": content,
+                        "page": page,
+                        "category": "paragraph",
                     }
                 )
 
-            elif element_type == "table":
+            elif metadata.get("type") == "table":
                 # 표는 텍스트로 변환
-                table_text = self._table_to_text(element.get("content"))
+                table_text = self._table_to_text(content)
                 content_blocks.append(
                     {
                         "type": "table",
                         "content": table_text,
-                        "page": element.get("page", 1),
+                        "page": page,
                     }
                 )
 
