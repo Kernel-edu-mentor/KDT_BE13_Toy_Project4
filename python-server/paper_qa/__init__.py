@@ -4,6 +4,6 @@
 """
 
 from paper_qa.api import router as qa_router
-from paper_qa.workflow import upload_workflow, qa_workflow
+from paper_qa.workflow import upload_workflow
 
-__all__ = ['qa_router', 'upload_workflow', 'qa_workflow']
+__all__ = ["qa_router", "upload_workflow"]
