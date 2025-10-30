@@ -16,3 +16,4 @@ python-server/**/*.pyc
 # IDE
 .idea/
 .vscode/
+python-server/CLAUDE.md
