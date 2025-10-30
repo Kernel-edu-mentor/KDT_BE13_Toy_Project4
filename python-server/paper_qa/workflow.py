@@ -32,7 +32,7 @@ async def parse_document_node(state: UploadState) -> dict:
     elif file_type == "ppt":
         parsed_blocks = ppt_parser.parse(file_path)
     else:
-        raise ValueError(f"Unsupported file_type: {file_type}")
+        raise ValueError(f"Unsupported file type: {file_type}")
 
     return {"parsed_blocks": parsed_blocks}
 
@@ -50,6 +50,7 @@ async def embed_and_store_node(state: UploadState) -> dict:
 
     # ChromaDB에 저장
     logger.info("Storing in ChromaDB")
+
     documents = []
     metadatas = []
     ids = []
