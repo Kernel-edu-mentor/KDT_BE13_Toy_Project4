@@ -2,11 +2,16 @@ spring:
   application:
     name: paper
   profiles:
-    active: local  # ?? ? ???
+    active: local  # 로컬 프로팔
 ---
 spring:
   application:
     name: paper
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
   # Database
   datasource:
@@ -45,6 +50,7 @@ file:
 
 # Server 설정 (대용량 파일 처리)
 server:
+  port: 8080
   tomcat:
     max-swallow-size: 320MB  # Tomcat 버퍼
     connection-timeout: 180000  # 3분 (180초)
@@ -54,12 +60,8 @@ jwt:
   secret: your-secret-key-change-this-in-production
   expiration: 86400000  # 24 hours
 
-# Server
-server:
-  port: 8080
-
 # Logging
 logging:
   level:
-    com.edumentor: DEBUG
+    com.paper: DEBUG
     org.springframework.web: INFO
