@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ProblemValidator behavior checks without relying on a testing framework."""
+"""테스트 프레임워크 없이 ProblemValidator 동작을 살펴보는 스크립트."""
 
 from __future__ import annotations
 
@@ -38,13 +38,13 @@ from paper_problem.validators.problem_validator import ProblemValidator  # noqa:
 
 
 def make_problem(**overrides):
-    """Create a baseline valid problem and apply any overrides used in tests."""
+    """기본적으로 유효한 문제 데이터를 만들고 테스트용 수정값을 덮어쓴다."""
     base_payload = {
-        "question": "What is the detailed explanation for the sample problem statement that easily exceeds fifty characters?",
-        "answer": "This is a fully fleshed out answer that easily clears twenty characters.",
+        "question": "이 질문은 예시 문제 설명을 50자 이상으로 충분히 풀어쓴 내용이며 학습 포인트를 자세히 묘사합니다.",
+        "answer": "이 답변은 20자 제한을 넉넉하게 넘어서는 충분한 길이를 갖습니다.",
         "hints": [
-            "Hint number one provides direction.",
-            "Hint number two narrows down the answer.",
+            "첫 번째 힌트는 방향을 제시합니다.",
+            "두 번째 힌트는 정답 범위를 좁혀 줍니다.",
         ],
         "difficulty_score": 2,
         "problem_type": "SHORT_ANSWER",
@@ -66,56 +66,56 @@ def test(name):
     return decorator
 
 
-@test("valid BEGINNER problem passes")
+@test("BEGINNER 난이도 유효 문제는 통과한다")
 def _():
     problem = make_problem()
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert is_valid, f"expected valid result, got: {reason}"
 
 
-@test("short question rejected")
+@test("질문 길이가 짧으면 거절된다")
 def _():
     problem = make_problem(question="Too short?")
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert not is_valid and "Question too short" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("short answer rejected")
+@test("답변 길이가 짧으면 거절된다")
 def _():
     problem = make_problem(answer="short answer")
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert not is_valid and "Answer too short" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("insufficient hints rejected")
+@test("힌트가 부족하면 거절된다")
 def _():
     problem = make_problem(hints=["Only hint"])
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert not is_valid and "Need at least 2 hints" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("difficulty score below range rejected")
+@test("난이도 점수가 범위보다 낮으면 거절된다")
 def _():
     problem = make_problem(difficulty_score=0)
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert not is_valid and "Difficulty score must be between 1-3" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("difficulty score above range rejected")
+@test("난이도 점수가 범위보다 높으면 거절된다")
 def _():
     problem = make_problem(difficulty_score=7)
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert not is_valid and "Difficulty score must be between 1-3" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("coding problem missing test cases rejected")
+@test("코딩 문제에 테스트 케이스가 없으면 거절된다")
 def _():
     problem = make_problem(problem_type="CODING", difficulty_score=4, test_cases=[])
     is_valid, reason = validator.validate(problem, "INTERMEDIATE")
     assert not is_valid and "CODING problems need test cases" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("coding problem with malformed test case rejected")
+@test("코딩 문제 테스트 케이스 구조가 틀리면 거절된다")
 def _():
     problem = make_problem(
         problem_type="CODING",
@@ -126,7 +126,7 @@ def _():
     assert not is_valid and "Test case needs 'input' and 'expected' fields" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
 
-@test("coding problem with valid test cases passes")
+@test("코딩 문제에 올바른 테스트 케이스가 있으면 통과한다")
 def _():
     problem = make_problem(
         problem_type="CODING",
@@ -137,9 +137,9 @@ def _():
     assert is_valid, f"expected valid result, got: {reason}"
 
 
-@test("placeholder answer rejected")
+@test("답변에 placeholder가 있으면 거절된다")
 def _():
-    problem = make_problem(answer="TODO fill in later...")
+    problem = make_problem(answer="TODO 나중에 채움... 충분히 길지만 TODO 표기 포함")
     is_valid, reason = validator.validate(problem, "BEGINNER")
     assert not is_valid and "Answer contains placeholder text" in reason, f"unexpected outcome: {is_valid}, {reason}"
 
