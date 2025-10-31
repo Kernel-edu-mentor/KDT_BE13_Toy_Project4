@@ -6,11 +6,16 @@ import com.paper.dto.user.UserRegistrationRequest;
 import com.paper.dto.user.UserResponse;
 import com.paper.security.UserPrincipal;
 import com.paper.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,9 +37,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = userService.login(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Authentication authentication = userService.authenticate(request);
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        HttpSession session = httpRequest.getSession(true);
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                SecurityContextHolder.getContext());
+
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        UserResponse userResponse = userService.getUserProfile(principal.getUsername());
+        return ResponseEntity.ok(LoginResponse.of(session.getId(), userResponse));
     }
 
     @GetMapping("/me")

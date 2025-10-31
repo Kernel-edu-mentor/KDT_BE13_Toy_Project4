@@ -7,14 +7,12 @@ import lombok.Getter;
 @Builder
 public class LoginResponse {
 
-    private final String accessToken;
-    private final String tokenType;
+    private final String sessionId;
     private final UserResponse user;
 
-    public static LoginResponse of(String token, UserResponse user) {
+    public static LoginResponse of(String sessionId, UserResponse user) {
         return LoginResponse.builder()
-                .accessToken(token)
-                .tokenType("Bearer")
+                .sessionId(sessionId)
                 .user(user)
                 .build();
     }

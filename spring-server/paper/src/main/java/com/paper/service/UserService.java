@@ -2,17 +2,19 @@ package com.paper.service;
 
 import com.paper.domain.User;
 import com.paper.dto.user.LoginRequest;
-import com.paper.dto.user.LoginResponse;
 import com.paper.dto.user.UserRegistrationRequest;
 import com.paper.dto.user.UserResponse;
 import com.paper.exception.InvalidCredentialsException;
 import com.paper.exception.UsernameAlreadyExistsException;
 import com.paper.repository.UserRepository;
-import com.paper.security.JwtTokenProvider;
+import com.paper.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 
@@ -23,7 +25,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthenticationManager authenticationManager;
 
     @Transactional
     public UserResponse register(UserRegistrationRequest request) {
@@ -42,16 +44,15 @@ public class UserService {
         return UserResponse.from(saved);
     }
 
-    public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(InvalidCredentialsException::new);
+    public Authentication authenticate(LoginRequest request) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+        );
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!(authentication.getPrincipal() instanceof UserPrincipal)) {
             throw new InvalidCredentialsException();
         }
-
-        String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole());
-        return LoginResponse.of(token, UserResponse.from(user));
+        return authentication;
     }
 
     public UserResponse getUserProfile(String username) {
