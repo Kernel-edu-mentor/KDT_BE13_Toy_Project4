@@ -3,6 +3,8 @@ package com.paper.client;
 import com.paper.dto.TestResponse;
 import com.paper.dto.client.MaterialUploadRequest;
 import com.paper.dto.client.MaterialUploadResponse;
+import com.paper.dto.client.QARequest;
+import com.paper.dto.client.QAResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
@@ -69,4 +71,26 @@ public class PythonClient {
                     log.error("Upload failed: Type={}, Message={}", error.getClass().getSimpleName(), error.getMessage());
                 });
     }
+
+    /**
+     * QA 질문 요청
+     */
+    public Mono<QAResponse> askQuestion(QARequest request) {
+
+        log.info("Calling Python QA service : material = {}, quesion = {}", request.getMaterialId(), request.getQuestion());
+
+        return pythonWebClient.post()
+                .uri("/qa/qa/ask")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(QAResponse.class)
+                .timeout(Duration.ofSeconds(90))
+                .doOnSuccess(response ->
+                        log.info("QA response recieved in {}ms", response.getResponseTimeMs())
+                )
+                .doOnError(error ->
+                        log.error("Upload failed: Type={}, Message={}", error.getClass().getSimpleName(), error.getMessage())
+                );
+    }
+
 }

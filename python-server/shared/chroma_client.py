@@ -50,7 +50,8 @@ class ChromaClient:
 
         return self.client.get_or_create_collection(
             name=name,
-            metadata={"hnsw:space": "cosine"}
+            metadata={"hnsw:space": "cosine"},
+            embedding_function=None
         )
 
     def add_documents(

@@ -4,8 +4,8 @@ from pathlib import Path
 import logging
 import time
 import shutil
-from paper_qa.models import MaterialUploadRequest, MaterialUploadResponse
-from paper_qa.workflow import upload_workflow
+from paper_qa.models import MaterialUploadRequest, MaterialUploadResponse, QARequest, QAResponse
+from paper_qa.workflow import upload_workflow, qa_workflow
 from shared.chroma_client import chroma_client
 from shared.upstage_client import upstage_client
 from config import settings
@@ -126,6 +126,31 @@ async def upload_material_file(
             chunk_count=0,
             message=f"Processing failed: {str(e)}",
         )
+
+@router.post("/ask", response_model=QAResponse)
+async def ask_question(request: QARequest):
+    """학습자료 기반 질의응답"""
+    start_time = time.time()
+
+    # LangGraph 워크플로우 실행
+    result = await qa_workflow.ainvoke({
+        "question": request.question,
+        "material_id": request.material_id
+    })
+
+    response_time = int((time.time() - start_time) * 1000)
+
+    # 2초 초과 시 경고
+    if response_time > 2000:
+        logger.warning(f"⚠️ Slow response: {response_time}ms")
+    else:
+        logger.info(f"✅ Response time: {response_time}ms")
+
+    return QAResponse(
+        answer=result["answer"],
+        sources=result["sources"],
+        response_time_ms=response_time
+    )
 
 
 @router.get("/data/{material_id}")

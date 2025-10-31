@@ -40,4 +40,12 @@ public class MaterialService {
             material.setPageCount(pageCount);
         }
     }
+
+    public Material findById(Long materialId) {
+
+        Material material = materialRepository.findById(materialId)
+                .orElseThrow(() -> new IllegalArgumentException("Material not found: " + materialId));
+
+        return material;
+    }
 }

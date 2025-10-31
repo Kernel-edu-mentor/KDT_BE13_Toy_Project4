@@ -1,5 +1,7 @@
 package com.paper.domain;
 
+import com.paper.config.converter.SourceListConverter;
+import com.paper.dto.client.QAResponse;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,6 +10,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "qa_sessions")
@@ -35,8 +38,9 @@ public class QASession {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String answer;
 
+    @Convert(converter = SourceListConverter.class) // 컨버터 지정
     @Column(columnDefinition = "JSONB")
-    private String sources;  // JSON 형태로 저장
+    private List<QAResponse.Source> sources;  // JSON 형태로 저장
 
     private Integer responseTimeMs;
 
