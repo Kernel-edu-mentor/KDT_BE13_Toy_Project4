@@ -14,7 +14,7 @@ async def generate_problems(request: ProblemRequest):
 
     logger.info(
         f"Generating {request.problem_count} {request.difficulty} problems "
-        f"for meterial {request.material_ide}"
+        f"for material {request.material_id}"
     )
 
     try:

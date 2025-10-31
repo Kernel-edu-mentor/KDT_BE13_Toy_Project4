@@ -1,11 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Literal
 
 
 class MaterialUploadRequest(BaseModel):
     material_id: int
     file_path: str
-    file_type: str = "pdf"
+    file_type: str = Field(default="pdf")
 
 class MaterialUploadResponse(BaseModel):
     material_id: int

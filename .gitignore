@@ -17,3 +17,5 @@ python-server/**/*.pyc
 .idea/
 .vscode/
 python-server/CLAUDE.md
+python-server/data/materials
+spring-server/paper/uploads
