@@ -52,4 +52,9 @@ public class Material {
     public enum ParseStatus {
         PENDING, COMPLETED, FAILED
     }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }

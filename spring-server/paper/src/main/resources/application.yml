@@ -8,6 +8,10 @@ spring:
   application:
     name: paper
 
+  mvc:
+    async:
+      request-timeout: 90000  # 90초로 설정 (기본 30초보다 훨씬 김)
+
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
@@ -44,9 +48,10 @@ python:
 
 # ✨ File Storage 설정
 file:
-  upload-dir: ./uploads  # 로컬 디렉토리
+  upload-dir: uploads  # 로컬 디렉토리
   #upload-dir: /app/shared/uploads  # Docker에서는 이 경로
-  allowed-extensions: pdf  # PDF만 허용
+  allowed-extensions:
+    -pdf  # PDF만 허용
   max-size: 314572800  # 300MB in bytes
 
 # Server 설정 (대용량 파일 처리)
@@ -56,6 +61,8 @@ server:
     max-swallow-size: 320MB  # Tomcat 버퍼
     connection-timeout: 180000  # 3분 (180초)
 
+
+
 # JWT
 jwt:
   secret: your-secret-key-change-this-in-production
@@ -64,5 +71,5 @@ jwt:
 # Logging
 logging:
   level:
-    com.paper: DEBUG
+    com.paper: INFO
     org.springframework.web: INFO
