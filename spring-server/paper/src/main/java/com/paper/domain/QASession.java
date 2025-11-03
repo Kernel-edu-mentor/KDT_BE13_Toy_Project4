@@ -1,12 +1,13 @@
 package com.paper.domain;
 
-import com.paper.config.converter.SourceListConverter;
 import com.paper.dto.client.QAResponse;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 
 import java.time.LocalDateTime;
@@ -38,13 +39,17 @@ public class QASession {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String answer;
 
-    @Convert(converter = SourceListConverter.class) // 컨버터 지정
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSONB")
-    private List<QAResponse.Source> sources;  // JSON 형태로 저장
+    private List<QAResponse.Source> sources;
 
     private Integer responseTimeMs;
 
-    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

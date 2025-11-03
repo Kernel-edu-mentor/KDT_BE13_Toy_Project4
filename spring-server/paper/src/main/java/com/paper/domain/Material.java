@@ -56,6 +56,7 @@ public class Material {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        parseStatus = ParseStatus.PENDING;
     }
 
 }

@@ -1,11 +1,13 @@
 package com.paper.service;
 
 import com.paper.domain.Material;
+import com.paper.dto.client.MaterialUploadRequest;
 import com.paper.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -14,15 +16,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class MaterialService {
 
     private final MaterialRepository materialRepository;
+    private final FileStorageService fileStorageService;
 
-    public Material createMaterial(String testuser, String title, String fileType, String filePath, Material.ParseStatus parseStatus) {
+    public Material uploadAndCreateMaterial(String user, MultipartFile file, String title) {
 
+        // 1. 파일 저장 (파일 I/O 로직을 서비스 안으로 가져옴)
+        String filePath = fileStorageService.storeFile(file);
+        String fileType = fileStorageService.getFileType(file.getOriginalFilename());
+
+        // 2. DB 저장 (메타데이터)
         Material material = Material.builder()
                 .title(title)
                 .fileType(Material.FileType.valueOf(fileType))
                 .filePath(filePath)
-                .parseStatus(parseStatus)
-
+                //.uploadedBy(user)
                 .build();
 
         return materialRepository.save(material);
@@ -30,7 +37,7 @@ public class MaterialService {
 
     public void updateParseStatus(Long materialId, Material.ParseStatus parseStatus, Integer pageCount) {
 
-        // 1. ID로 객체를 다시 로드합니다 (트랜잭션 내에서 managed 상태로 만듦)
+        // 1. ID로 객체를 다시 로드
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new IllegalArgumentException("Material not found: " + materialId));
 

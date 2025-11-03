@@ -21,12 +21,15 @@ public class QAService {
 
         Material material = materialService.findById(request.getMaterialId());
 
-        QASession.builder()
+        QASession qaSession = QASession.builder()
                 .material(material)
                 .question(request.getQuestion())
                 .answer(response.getAnswer())
                 .sources(response.getSources())
                 .responseTimeMs(response.getResponseTimeMs())
                 .build();
+
+        qaRepository.save(qaSession);
+
     }
 }

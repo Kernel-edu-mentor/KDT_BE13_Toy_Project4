@@ -19,4 +19,13 @@ public class MaterialUploadRequest {
 
     @JsonProperty("file_type")
     private String fileType;
+
+    public static MaterialUploadRequest from(Material material, String filePath, String fileType) {
+        return MaterialUploadRequest.builder()
+                .materialId(material.getId())
+                .filePath(filePath)
+                .fileType(fileType.toLowerCase())
+                .build();
+    }
+
 }

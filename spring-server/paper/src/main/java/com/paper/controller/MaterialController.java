@@ -21,7 +21,6 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class MaterialController {
 
-    private final FileStorageService fileStorageService;
     private final MaterialService materialService;
     private final PythonClient pythonClient;
 
@@ -34,7 +33,7 @@ public class MaterialController {
      * 5. Python 작업 완료 후 COMPLETED로 업데이트
      */
     @PostMapping("/upload")
-    public Mono<ResponseEntity<Material>> uploadMaterial (
+    public Mono<ResponseEntity<String>> uploadMaterial (
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title
             //@AuthenticationPrincipal UserDetails userDetails // TODO : 회원 로직 생성 후 연결
@@ -43,39 +42,33 @@ public class MaterialController {
         log.info("User {} uploading : {}", "testuser", title);  // TODO : 실제 user 연결
 
         try {
-            String filePath = fileStorageService.storeFile(file);
-            String fileType = fileStorageService.getFileType(file.getOriginalFilename());
 
-            // PostgreSQL에 메타데이터 저장 (동기 실행)
-            Material material = materialService.createMaterial (
-                    "testuser", title, fileType, filePath, Material.ParseStatus.PENDING
+            // 1. 서비스에 전체 업로드 로직 위임 (파일 I/O + DB 저장)
+            Material material = materialService.uploadAndCreateMaterial("user", file, title);
+
+            // 2. 외부 호출용 DTO로 변환
+            MaterialUploadRequest request = MaterialUploadRequest.from(
+                    material,
+                    material.getFilePath(),
+                    material.getFileType().toString() // DTO가 문자열을 받도록 가정
             );
-            log.info("Material saved : id = {}, path = {}", material.getId(), filePath);
 
-            // Python에 파일 경로만 전달 및 Mono 체인 시작
-            MaterialUploadRequest request = MaterialUploadRequest.builder()
-                    .materialId(material.getId())
-                    .filePath(filePath)
-                    .fileType(fileType.toLowerCase())
-                    .build();
-
-            // 🌟 Mono 체인 반환
+            // Mono 체인 반환
             return pythonClient.uploadMaterial(request)
                     .doOnSuccess(resp -> {
                         materialService.updateParseStatus(
-                                material.getId(),
+                                request.getMaterialId(),
                                 Material.ParseStatus.COMPLETED,
                                 resp.getPageCount()
                         );
-                        // 🌟 이 로그가 출력됩니다.
-                        log.info("Parsing completed : id = {}", material.getId());
+                        log.info("Parsing completed : id = {}", request.getMaterialId());
                     })
-                    .map(resp -> ResponseEntity.ok(material))
+                    .map(resp -> ResponseEntity.ok("파일 업로드 완료!"))
                     .onErrorResume(err -> {
                         // Python 클라이언트 통신 실패 시
                         log.error("Parsing Failed : {}",err.getMessage());
                         materialService.updateParseStatus(
-                                material.getId(),
+                                request.getMaterialId(),
                                 Material.ParseStatus.FAILED,
                                 null
                         );
@@ -86,9 +79,9 @@ public class MaterialController {
         } catch (Exception e) {
             // 파일 저장 또는 DB 저장(createMaterial) 중 동기 예외 발생 시 처리
             log.error("Upload Failed (Synchronous Error) : {}", e.getMessage(), e);
-            // 🌟 동기 예외를 Mono.error()로 감싸서 반환하거나,
-            // 🌟 여기서는 요청을 즉시 종료하는 ResponseEntity.badRequest()를 반환합니다.
-            return Mono.just(ResponseEntity.badRequest().body(null)); // null 대신 적절한 메시지 바디 사용 권장
+            // 동기 예외를 Mono.error()로 감싸서 반환하거나,
+            // 여기서는 요청을 즉시 종료하는 ResponseEntity.badRequest()를 반환합니다.
+            return Mono.just(ResponseEntity.badRequest().body("파일 업로드에 실패하였습니다."));
         }
     }
 }
