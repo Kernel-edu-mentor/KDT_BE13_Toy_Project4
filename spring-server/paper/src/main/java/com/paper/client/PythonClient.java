@@ -5,6 +5,8 @@ import com.paper.dto.client.MaterialUploadRequest;
 import com.paper.dto.client.MaterialUploadResponse;
 import com.paper.dto.client.QARequest;
 import com.paper.dto.client.QAResponse;
+import com.paper.dto.client.python.ProblemRequestToPython;
+import com.paper.dto.client.python.ProblemResponseToPython;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
@@ -43,7 +45,7 @@ public class PythonClient {
     }
 
     /**
-     * ✨ 자료 업로드 (파일 경로만 전달)
+     * 자료 업로드 (파일 경로만 전달)
      */
     public Mono<MaterialUploadResponse> uploadMaterial(MaterialUploadRequest request) {
         log.info("Sending material upload to Python: material_id={}, path={}",
@@ -90,6 +92,35 @@ public class PythonClient {
                 )
                 .doOnError(error ->
                         log.error("Upload failed: Type={}, Message={}", error.getClass().getSimpleName(), error.getMessage())
+                );
+    }
+
+    /**
+     * 문제 생성 요청
+     */
+    public Mono<ProblemResponseToPython> generateProblems(ProblemRequestToPython request) {
+
+        log.info("Calling Python Problem service: material={}, difficulty={}, count={}",
+                request.getMaterialId(), request.getDifficulty(), request.getProblemCount());
+
+        return pythonWebClient.post()
+                .uri("/problems/problems/generate")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class) // 응답 본문을 String으로 읽기
+                                .flatMap(body -> {
+                                    log.error("Generated failed with status {}. Response body: {}", clientResponse.statusCode(), body); // 본문 로그 출력
+                                    return Mono.error(new RuntimeException("Generated failed: " + body));
+                                })
+                )
+                .bodyToMono(ProblemResponseToPython.class)
+                .timeout(Duration.ofSeconds(30))
+                .doOnSuccess(response ->
+                        log.info("Generated {} problems", response.getGeneratedCount())
+                )
+                .doOnError(error ->
+                        log.error("Generated failed: Type={}, Message={}", error.getClass().getSimpleName(), error.getMessage())
                 );
     }
 

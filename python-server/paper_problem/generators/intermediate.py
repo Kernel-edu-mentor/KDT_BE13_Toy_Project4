@@ -21,33 +21,33 @@ class IntermediateProblemGenerator:
     async def generate(self, context: str, count: int = 3) -> List[Problem]:
         """중급 문제 생성"""
 
-        prompt = f"""다음 학습 내용을 바탕으로 **중급** 실습 문제를 {count}개 생성하시오.
+        prompt = f"""다음 학습 내용을 바탕으로 **중급(기본 응용)** 실습 문제를 {count}개 생성하시오.
 
 **학습 내용**:
 {context}
 
-**중급 문제 요구사항**:
-1. 여러 개념을 결합
-2. 실무 시나리오 기반
-3. 코드 작성 (20-30줄)
-4. 테스트 케이스 포함
-5. 학습 내용에서 다룬 개념만 사용
+**중급 문제 요구사항 (비전공자 기준)**:
+1. **단일 개념 구현**: 배운 개념을 실제로 코드로 작성 (5-15줄)
+2. **간단한 메소드 작성**: 기본적인 기능을 가진 메소드 구현
+3. **예제 수정**: 제시된 예제 코드를 일부 수정하거나 확장
+4. **실습 중심**: 따라할 수 있는 명확한 구현 문제
+5. 학습 내용에서 다룬 개념만 사용 (초급보다 약간 긴 코드)
 
 **출력 형식** (반드시 유효한 JSON 배열):
 [
     {{
-        "question": "학습 내용에서 다룬 여러 개념을 결합한 실무 기반 코딩 문제",
-        "answer": "예시 정답 코드 (20-30줄 수준)",
-        "hints": ["첫 번째 접근 힌트", "두 번째 구현 힌트", "최적화 힌트"],
-        "difficulty_score": 5,
+        "question": "Observer 패턴을 사용하여 간단한 Observer 클래스를 작성하세요. update() 메소드를 포함하고, Subject의 상태를 출력하는 기능을 구현하세요.",
+        "answer": "```java\\nclass DigitObserver implements Observer {{\\n    private NumberGenerator generator;\\n    \\n    public DigitObserver(NumberGenerator generator) {{\\n        this.generator = generator;\\n    }}\\n    \\n    public void update() {{\\n        int number = generator.getNumber();\\n        System.out.println(\\\"Current number: \\\" + number);\\n    }}\\n}}\\n```",
+        "hints": ["Observer 인터페이스를 구현하세요", "update() 메소드에서 Subject의 상태를 가져오세요", "가져온 상태를 출력하세요"],
+        "difficulty_score": 4,
         "problem_type": "CODING",
-        "test_cases": [{{"input": "테스트 입력값", "expected": "예상 출력값"}}, {{"input": "추가 입력", "expected": "추가 출력"}}]
+        "test_cases": [{{"input": "DigitObserver observer = new DigitObserver(generator); observer.update();", "expected": "Current number: [숫자]"}}]
     }},
     {{
-        "question": "학습 내용의 심화 개념이나 실무 적용 방법을 설명하는 문제",
-        "answer": "개념에 대한 심층적 설명 답변",
-        "hints": ["개념 이해 힌트", "실무 활용 예시"],
-        "difficulty_score": 4,
+        "question": "Observer 패턴에서 Subject 클래스의 notifyObservers() 메소드는 어떤 역할을 하나요? 구체적으로 설명하세요.",
+        "answer": "notifyObservers() 메소드는 Subject의 상태가 변경되었을 때, 등록된 모든 Observer들의 update() 메소드를 순서대로 호출하여 상태 변화를 알려주는 역할을 합니다.",
+        "hints": ["상태 변경 시 호출", "등록된 Observer들에게 알림", "update() 메소드 호출"],
+        "difficulty_score": 5,
         "problem_type": "SHORT_ANSWER"
     }}
 ]

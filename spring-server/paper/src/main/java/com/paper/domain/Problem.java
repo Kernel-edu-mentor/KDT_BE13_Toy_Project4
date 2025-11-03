@@ -1,17 +1,19 @@
 package com.paper.domain;
 
+import com.paper.dto.client.ProblemResponse;
+import com.paper.dto.client.python.ProblemResponseToPython;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
+import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "practice_problems")
-@Data
+@Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -38,17 +40,33 @@ public class Problem {
     @Column(columnDefinition = "TEXT")
     private String answer;
 
-    @Column(columnDefinition = "JSONB")
-    private String hints;  // JSON 배열
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<String> hints;
 
-    @Column(columnDefinition = "JSONB")
-    private String testCases;  // JSON 배열
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<Map<String, String>> testCases;
 
-    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public enum Difficulty {
         BEGINNER, INTERMEDIATE, ADVANCED
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public static Problem from(Material material, String difficulty, ProblemResponse.ProblemDto problemDto) {
+        return Problem.builder()
+                .material(material)
+                .difficulty(Difficulty.valueOf(difficulty.toUpperCase()))
+                .problemType(problemDto.getProblemType())
+                .question(problemDto.getQuestion())
+                .answer(problemDto.getAnswer())
+                .hints(problemDto.getHints())
+                .testCases(problemDto.getTestCases())
+                .build();
     }
 }

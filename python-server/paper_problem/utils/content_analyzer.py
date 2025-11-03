@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 from shared.chroma_client import chroma_client
+from shared.upstage_client import upstage_client
 import logging
 import re
 
@@ -12,7 +13,8 @@ class ContentAnalyzer:
     async def analyze_material(
         self,
         material_id: int,
-        difficulty: str
+        difficulty: str,
+        learning_topics: List[str] = None
     ) -> Dict[str, Any]:
         """난이도에 맞는 학습 내용 추출"""
 
@@ -42,14 +44,21 @@ class ContentAnalyzer:
 
         strategy = search_strategies[difficulty_key]
 
-        # 키워드별 검색
-        all_docs: List[Dict[str, Any]] = []
-        seen_ids = set()
+        # 사용자가 학습 주제를 지정했으면 우선 사용, 없으면 기본 키워드 사용
+        keywords = learning_topics if learning_topics else strategy["keywords"]
 
-        for keyword in strategy["keywords"]:
+        # 키워드별 검색 (토픽별로 그룹화)
+        documents_by_topic: Dict[str, List[Dict[str, Any]]] = {}
+        all_docs: List[Dict[str, Any]] = []
+        global_seen_ids = set()
+
+        for keyword in keywords:
+            # 키워드를 임베딩으로 변환
+            query_embedding = await upstage_client.embed_query(keyword)
+
             results = chroma_client.search(
                 collection_name="learning_materials",
-                query_texts=[keyword],
+                query_embeddings=[query_embedding],
                 n_results=strategy["k"],
                 filter_dict={"material_id": material_id}
             )
@@ -58,24 +67,36 @@ class ContentAnalyzer:
             documents = results.get("documents", [[]])
             metadatas = results.get("metadatas", [[]])
 
+            # 이 토픽의 문서들
+            topic_docs = []
+
             # 중복 제거하며 수집
             for i, doc_id in enumerate(ids[0]):
-                if doc_id in seen_ids:
+                if doc_id in global_seen_ids:
                     continue
 
-                seen_ids.add(doc_id)
+                global_seen_ids.add(doc_id)
                 metadata = metadatas[0][i] if i < len(metadatas[0]) else {}
 
-                all_docs.append({
+                doc = {
                     "content": documents[0][i] if i < len(documents[0]) else "",
                     "page": metadata.get("page"),
-                    "type": metadata.get("type")
-                })
+                    "type": metadata.get("type"),
+                    "topic": keyword  # 토픽 정보 추가
+                }
+
+                topic_docs.append(doc)
+                all_docs.append(doc)
+
+            documents_by_topic[keyword] = topic_docs
+            logger.info(f"Topic '{keyword}': {len(topic_docs)} documents")
 
         logger.info("Extracted %s content blocks for %s", len(all_docs), difficulty_key)
 
         return {
             "documents": all_docs,
+            "documents_by_topic": documents_by_topic,  # 토픽별 그룹 추가
+            "topics": keywords,  # 토픽 목록 추가
             "strategy": strategy,
             "total_count": len(all_docs)
         }
