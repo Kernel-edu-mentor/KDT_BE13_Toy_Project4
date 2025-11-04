@@ -9,6 +9,7 @@ import com.paper.exception.UsernameAlreadyExistsException;
 import com.paper.repository.UserRepository;
 import com.paper.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -26,6 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final KakaoService kakaoService;
 
     @Transactional
     public UserResponse register(UserRegistrationRequest request) {
@@ -58,6 +61,29 @@ public class UserService {
     public UserResponse getUserProfile(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(InvalidCredentialsException::new);
+        return UserResponse.from(user);
+    }
+
+    @Transactional
+    public UserResponse loginWithKakao(String accessToken) {
+        KakaoService.KakaoUserInfo kakaoUserInfo = kakaoService.getUserInfo(accessToken);
+        String kakaoId = "kakao_" + kakaoUserInfo.getId();
+        String username = kakaoUserInfo.getKakaoAccount() != null &&
+                kakaoUserInfo.getKakaoAccount().getEmail() != null
+                ? kakaoUserInfo.getKakaoAccount().getEmail()
+                : kakaoId;
+
+        User user = userRepository.findByUsername(username)
+                .orElseGet(() -> {
+                    log.info("카카오 로그인 신규 사용자 회원가입: {}", username);
+                    User newUser = User.builder()
+                            .username(username)
+                            .password(passwordEncoder.encode("kakao_" + kakaoUserInfo.getId())) // 임시 비밀번호
+                            .role(User.Role.STUDENT)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    return userRepository.save(newUser);
+                });
         return UserResponse.from(user);
     }
 }
