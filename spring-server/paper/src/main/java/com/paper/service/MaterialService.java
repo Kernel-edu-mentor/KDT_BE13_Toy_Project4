@@ -1,6 +1,7 @@
 package com.paper.service;
 
 import com.paper.domain.Material;
+import com.paper.dto.MaterialResponse;
 import com.paper.dto.client.MaterialUploadRequest;
 import com.paper.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -54,5 +59,13 @@ public class MaterialService {
                 .orElseThrow(() -> new IllegalArgumentException("Material not found: " + materialId));
 
         return material;
+    }
+
+    @Transactional(readOnly = true)
+    public List<MaterialResponse> findAll() {
+        return materialRepository.findAll().stream()
+                .map(MaterialResponse::from)
+                .sorted(Comparator.comparing(MaterialResponse::getCreatedAt).reversed())
+                .collect(Collectors.toList());
     }
 }

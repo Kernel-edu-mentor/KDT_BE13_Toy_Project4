@@ -2,18 +2,22 @@ package com.paper.controller;
 
 import com.paper.client.PythonClient;
 import com.paper.domain.Material;
+import com.paper.dto.MaterialResponse;
 import com.paper.dto.client.MaterialUploadRequest;
 import com.paper.service.FileStorageService;
 import com.paper.service.MaterialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -25,6 +29,16 @@ public class MaterialController {
     private final PythonClient pythonClient;
 
     /**
+     * 학습 자료 목록 조회
+     */
+    @GetMapping
+    public ResponseEntity<List<MaterialResponse>> getMaterials() {
+        log.info("Fetching all materials");
+        List<MaterialResponse> materials = materialService.findAll();
+        return ResponseEntity.ok(materials);
+    }
+
+    /**
      * 학습 자료 업로드
      * 1. Spring에서 파일을 공유 불륨에 저장. (개발 환경에서는 local에 저장)
      * 2. PostgreSql에 메타데이터 저장 (PENDING)
@@ -33,7 +47,7 @@ public class MaterialController {
      * 5. Python 작업 완료 후 COMPLETED로 업데이트
      */
     @PostMapping("/upload")
-    public Mono<ResponseEntity<String>> uploadMaterial (
+    public Mono<ResponseEntity<MaterialResponse>> uploadMaterial (
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title
             //@AuthenticationPrincipal UserDetails userDetails // TODO : 회원 로직 생성 후 연결
@@ -53,8 +67,11 @@ public class MaterialController {
                     material.getFileType().toString() // DTO가 문자열을 받도록 가정
             );
 
-            // Mono 체인 반환
-            return pythonClient.uploadMaterial(request)
+            // 3. MaterialResponse 생성 (업로드 직후 상태)
+            MaterialResponse materialResponse = MaterialResponse.from(material);
+
+            // 4. 파싱은 비동기로 진행하고, 업로드 직후 Material 정보를 즉시 반환
+            pythonClient.uploadMaterial(request)
                     .doOnSuccess(resp -> {
                         materialService.updateParseStatus(
                                 request.getMaterialId(),
@@ -63,7 +80,6 @@ public class MaterialController {
                         );
                         log.info("Parsing completed : id = {}", request.getMaterialId());
                     })
-                    .map(resp -> ResponseEntity.ok("파일 업로드 완료!"))
                     .onErrorResume(err -> {
                         // Python 클라이언트 통신 실패 시
                         log.error("Parsing Failed : {}",err.getMessage());
@@ -72,16 +88,18 @@ public class MaterialController {
                                 Material.ParseStatus.FAILED,
                                 null
                         );
-                        return Mono.just(ResponseEntity.internalServerError().build());
+                        return Mono.empty();
                     })
-                    .doFinally(signal -> log.info("Controller Mono 체인 최종 상태 : {}", signal));
+                    .subscribe(); // 비동기로 실행
+
+            // 5. 업로드 직후 Material 정보 반환
+            return Mono.just(ResponseEntity.ok(materialResponse));
 
         } catch (Exception e) {
             // 파일 저장 또는 DB 저장(createMaterial) 중 동기 예외 발생 시 처리
             log.error("Upload Failed (Synchronous Error) : {}", e.getMessage(), e);
-            // 동기 예외를 Mono.error()로 감싸서 반환하거나,
-            // 여기서는 요청을 즉시 종료하는 ResponseEntity.badRequest()를 반환합니다.
-            return Mono.just(ResponseEntity.badRequest().body("파일 업로드에 실패하였습니다."));
+            // 동기 예외를 Mono.error()로 감싸서 반환
+            return Mono.error(e);
         }
     }
 }

@@ -26,7 +26,7 @@ public class SecurityConfig {
                 .userDetailsService(customUserDetailsService)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/kakao/callback").permitAll()
                         //.anyRequest().authenticated()
                         .anyRequest().permitAll()
                 );
