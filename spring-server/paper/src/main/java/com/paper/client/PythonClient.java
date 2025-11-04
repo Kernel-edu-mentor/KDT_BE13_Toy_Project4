@@ -63,7 +63,7 @@ public class PythonClient {
                                 })
                 )
                 .bodyToMono(MaterialUploadResponse.class)
-                .timeout(Duration.ofMinutes(10))
+                .timeout(Duration.ofMinutes(20))
                 .doOnSuccess(response ->
                         log.info("Upload completed: materialId={}, status={}, chunks={}, page_count={}, message={}",
                                 request.getMaterialId(), response.getStatus(), response.getChunkCount(), response.getPageCount(), response.getMessage(), response.getMessage())

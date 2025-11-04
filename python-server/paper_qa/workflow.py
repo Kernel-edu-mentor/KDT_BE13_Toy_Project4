@@ -6,6 +6,7 @@ from paper_qa.parsers.pdf_parser import pdf_parser
 from paper_qa.parsers.ppt_parser import ppt_parser
 from langchain_upstage import ChatUpstage
 from langchain.schema import HumanMessage
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from config import settings
 import logging, time
 
@@ -41,43 +42,81 @@ async def parse_document_node(state: UploadState) -> dict:
 
 
 async def embed_and_store_node(state: UploadState) -> dict:
-    """2단계: 임베딩 및 ChromaDB 저장"""
+    """2단계: 임베딩 및 ChromaDB 저장 (청크 기반)"""
     material_id = state["material_id"]
     parsed_blocks = state["parsed_blocks"]
 
-    logger.info(f"Embedding {len(parsed_blocks)} blocks")
+    logger.info(f"Chunking {len(parsed_blocks)} blocks")
 
-    # 배치 임베딩 (효율성)
-    texts = [block["content"] for block in parsed_blocks]
-    embeddings = await upstage_client.embed_documents(texts)
-
-    # ChromaDB에 저장
-    logger.info("Storing in ChromaDB")
-
-    documents = []
-    metadatas = []
-    ids = []
-
-    for idx, block in enumerate(parsed_blocks):
-        documents.append(block["content"])
-        metadatas.append(
-            {"material_id": material_id, "page": block["page"], "type": block["type"]}
-        )
-        ids.append(f"material_{material_id}_block_{idx}")
-
-    chroma_client.add_documents(
-        collection_name="learning_materials",
-        documents=documents,
-        metadatas=metadatas,
-        ids=ids,
-        embeddings=embeddings,  # embeddings을 직접 계산했으니 명시적으로 직접 전달
+    # RecursiveCharacterTextSplitter 초기화
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,        # 1-2 단락 크기
+        chunk_overlap=50,      # 문맥 유지 (10%)
+        separators=["\n\n", "\n", ". ", " ", ""],  # 문단 → 문장 → 단어 순 분할
+        length_function=len,
     )
 
-    logger.info(f"Stored {len(documents)} blocks in ChromaDB")
+    # 청킹 처리
+    all_chunks = []
+    for block in parsed_blocks:
+        content = block["content"]
+        page = block["page"]
+        block_type = block["type"]
+
+        # 텍스트를 청크로 분할
+        chunks = text_splitter.split_text(content)
+
+        for chunk in chunks:
+            all_chunks.append({
+                "content": chunk,
+                "page": page,
+                "type": block_type,
+            })
+
+    logger.info(f"Created {len(all_chunks)} chunks from {len(parsed_blocks)} blocks")
+
+    # 배치 임베딩 (효율성)
+    texts = [chunk["content"] for chunk in all_chunks]
+    embeddings = await upstage_client.embed_documents(texts)
+
+    # ChromaDB에 배치로 저장 (Payload Too Large 방지)
+    logger.info(f"Storing {len(all_chunks)} chunks in ChromaDB (batch mode)")
+
+    BATCH_SIZE = 100  # 한 번에 100개씩 저장
+    total_stored = 0
+
+    for i in range(0, len(all_chunks), BATCH_SIZE):
+        batch_chunks = all_chunks[i:i + BATCH_SIZE]
+        batch_embeddings = embeddings[i:i + BATCH_SIZE]
+
+        documents = []
+        metadatas = []
+        ids = []
+
+        for idx, chunk in enumerate(batch_chunks):
+            global_idx = i + idx
+            documents.append(chunk["content"])
+            metadatas.append(
+                {"material_id": material_id, "page": chunk["page"], "type": chunk["type"]}
+            )
+            ids.append(f"material_{material_id}_chunk_{global_idx}")
+
+        chroma_client.add_documents(
+            collection_name="learning_materials",
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids,
+            embeddings=batch_embeddings,
+        )
+
+        total_stored += len(documents)
+        logger.info(f"Stored batch {i // BATCH_SIZE + 1}: {total_stored}/{len(all_chunks)} chunks")
+
+    logger.info(f"✅ Successfully stored all {total_stored} chunks in ChromaDB")
 
     return {
         "embeddings": embeddings,
-        "parsed_blocks": parsed_blocks,
+        "parsed_blocks": all_chunks,
         "status": "completed",
     }
 
