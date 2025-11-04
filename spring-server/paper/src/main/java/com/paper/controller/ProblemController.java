@@ -1,17 +1,17 @@
 package com.paper.controller;
 
 import com.paper.client.PythonClient;
+import com.paper.dto.client.ProblemAnswerRequest;
 import com.paper.dto.client.ProblemRequest;
 import com.paper.dto.client.ProblemResponse;
+import com.paper.dto.client.python.AnswerRequestToPython;
+import com.paper.dto.client.python.AnswerResponseToPython;
 import com.paper.dto.client.python.ProblemRequestToPython;
 import com.paper.service.ProblemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -43,4 +43,17 @@ public class ProblemController {
                 });
     }
 
+    @PostMapping("/answer/{id}")
+    public Mono<ResponseEntity<AnswerResponseToPython>> checkAnswer(@PathVariable("id") Long id,
+                                                                    @RequestBody ProblemAnswerRequest request) {
+
+        AnswerRequestToPython requestAnswer = problemService.getRequestAnswer(id, request);
+
+        return pythonClient.checkAnswer(requestAnswer)
+                .map(ResponseEntity::ok)
+                .onErrorResume(error -> {
+                    log.error("Problems check-answer failed", error.getCause());
+                    return Mono.just(ResponseEntity.internalServerError().build());
+                });
+    }
 }

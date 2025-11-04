@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from paper_problem.models import ProblemRequest, ProblemResponse
+from paper_problem.models import ProblemRequest, ProblemResponse, AnswerCheckRequest, AnswerCheckResponse
 from paper_problem.workflow import problem_workflow
+from paper_problem.graders import answer_grader
 import logging, time
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,39 @@ async def generate_problems(request: ProblemRequest):
 
     except Exception as e:
         logger.error(f"Error generating problems : {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/check-answer", response_model=AnswerCheckResponse)
+async def check_answer(request: AnswerCheckRequest):
+    """사용자 답변 검증 (SHORT_ANSWER, CODING 모두 지원)"""
+    start_time = time.time()
+
+    logger.info(
+        f"Checking answer for problem_type={request.problem.problem_type}"
+    )
+
+    try:
+        # 채점 실행
+        result = await answer_grader.grade(request.problem, request.user_answer)
+
+        # 응답 시간 계산
+        response_time = int((time.time() - start_time) * 1000)
+        result["response_time_ms"] = response_time
+
+        # 오답일 경우 정답 표시
+        if not result["is_correct"]:
+            result["correct_answer"] = request.problem.answer
+
+        logger.info(
+            f"Grading completed: is_correct={result['is_correct']}, "
+            f"score={result['score']}, time={response_time}ms"
+        )
+
+        return AnswerCheckResponse(**result)
+
+    except Exception as e:
+        logger.error(f"Error checking answer: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

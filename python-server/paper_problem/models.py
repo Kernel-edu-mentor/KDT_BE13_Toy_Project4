@@ -22,3 +22,18 @@ class ProblemResponse(BaseModel):
     generated_count: int
     rejected_count: int
     response_time_ms: int
+
+# 답변 검증 관련 모델
+class AnswerCheckRequest(BaseModel):
+    problem: Problem
+    user_answer: str
+
+class AnswerCheckResponse(BaseModel):
+    is_correct: bool
+    score: int  # 0-100 점수
+    feedback: str  # 상세 피드백
+    correct_answer: Optional[str] = None  # 오답일 경우만 표시
+    similarity_score: Optional[float] = None  # SHORT_ANSWER용 의미 유사도
+    rubric_scores: Optional[Dict] = None  # CODING용 루브릭 점수
+    test_results: Optional[List[Dict]] = None  # CODING용 테스트 결과
+    response_time_ms: int

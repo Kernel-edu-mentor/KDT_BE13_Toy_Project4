@@ -2,8 +2,10 @@ package com.paper.service;
 
 import com.paper.domain.Material;
 import com.paper.domain.Problem;
+import com.paper.dto.client.ProblemAnswerRequest;
 import com.paper.dto.client.ProblemRequest;
 import com.paper.dto.client.ProblemResponse;
+import com.paper.dto.client.python.AnswerRequestToPython;
 import com.paper.dto.client.python.ProblemResponseToPython;
 import com.paper.repository.ProblemRepository;
 import lombok.RequiredArgsConstructor;
@@ -49,5 +51,16 @@ public class ProblemService {
                 .subscribeOn(Schedulers.boundedElastic())
                 // 3. 최종적으로 Mono<Void>로 변환하여 반환/
                 .then();
+    }
+
+
+    public AnswerRequestToPython getRequestAnswer(Long id, ProblemAnswerRequest request) {
+
+        Problem problem = findById(id);
+        return AnswerRequestToPython.from(problem, request);
+    }
+
+    private Problem findById(Long id) {
+        return problemRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("데이터 조회 실패"));
     }
 }
