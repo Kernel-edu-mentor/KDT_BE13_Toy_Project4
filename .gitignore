@@ -22,3 +22,4 @@ spring-server/paper/uploads
 /python-server/TROUBLESHOOTING.md
 .DS_Stroe
 */*/.DS_Store
+404-NOT-FOUND-Frontend/.vite/*
