@@ -138,6 +138,8 @@ class QAState(TypedDict):
     answer: str
     sources: List[Dict]
     response_time: float
+    has_relevant_docs: bool  # 관련 문서 존재 여부
+    answer_quality: str  # "good", "needs_review", "fallback"
 
 
 async def retrieve_node(state: QAState) -> dict:
@@ -149,21 +151,19 @@ async def retrieve_node(state: QAState) -> dict:
 
     logger.info(f"Retrieving docs for: {question}")
 
-    # 1. 질문 임베딩 (수정된 코드 적용 가정)
+    # 1. 질문 임베딩
     query_embedding = (await upstage_client.embed_documents([question]))[0]
 
-    # 검색 (k=3으로 제한 - 속도 최적화)
+    # 검색 (k=5로 증가 - 더 많은 후보 확보)
     results = chroma_client.search(
         collection_name="learning_materials",
-        query_embeddings=[query_embedding],  # Upstage 임베딩 사용
-        n_results=3,
+        query_embeddings=[query_embedding],
+        n_results=5,
         filter_dict={"material_id": material_id}
     )
 
-    # 🌟🌟🌟 변수 초기화 추가 🌟🌟🌟
-    retrieved_docs = []
-
     # 결과 구성
+    retrieved_docs = []
     for i in range(len(results['documents'][0])):
         retrieved_docs.append({
             'content': results['documents'][0][i],
@@ -172,17 +172,40 @@ async def retrieve_node(state: QAState) -> dict:
             'distance': results['distances'][0][i]
         })
 
-    retrieve_time = time.time() - start_time
-    logger.info(f"⚡ Retrieve time: {retrieve_time:.3f}s")
+    # 검색 결과 품질 평가
+    has_relevant_docs = len(retrieved_docs) > 0 and retrieved_docs[0]['distance'] < 0.5
 
-    return {"retrieved_docs": retrieved_docs}  # 이제 retrieved_docs가 정의됨
+    retrieve_time = time.time() - start_time
+    logger.info(f"⚡ Retrieve time: {retrieve_time:.3f}s, found {len(retrieved_docs)} docs")
+
+    if not has_relevant_docs:
+        logger.warning(f"⚠️ No relevant documents found (best distance: {retrieved_docs[0]['distance'] if retrieved_docs else 'N/A'})")
+
+    return {
+        "retrieved_docs": retrieved_docs,
+        "has_relevant_docs": has_relevant_docs
+    }
+
+async def fallback_response_node(state: QAState) -> dict:
+    """관련 문서가 없을 때 대체 응답"""
+    question = state["question"]
+
+    logger.info("Generating fallback response (no relevant docs)")
+
+    answer = f"죄송합니다. 업로드하신 학습자료에서 '{question}'에 대한 관련 내용을 찾을 수 없습니다.\n\n다른 질문을 해주시거나, 질문을 더 구체적으로 작성해주시면 도움이 될 것 같습니다."
+
+    return {
+        "answer": answer,
+        "sources": [],
+        "answer_quality": "fallback"
+    }
 
 async def generate_answer_node(state: QAState) -> dict:
     """Upstage Solar로 답변 생성"""
     start_time = time.time()
 
     question = state["question"]
-    retrieved_docs = state["retrieved_docs"]
+    retrieved_docs = state["retrieved_docs"][:3]  # 상위 3개만 사용
 
     # 컨텍스트 구성
     context_parts = []
@@ -210,6 +233,7 @@ async def generate_answer_node(state: QAState) -> dict:
 1. 학습자료에 있는 내용만 사용하세요
 2. 명확하고 간결하게 답변하세요 (3-5문장)
 3. 관련 페이지 번호를 명시하세요
+4. 학습자료에 답이 없으면 "학습자료에서 해당 내용을 찾을 수 없습니다"라고 명시하세요
 
 답변:"""
 
@@ -230,8 +254,39 @@ async def generate_answer_node(state: QAState) -> dict:
 
     return {
         "answer": answer,
-        "sources": sources
+        "sources": sources,
+        "answer_quality": "good"
     }
+
+async def verify_answer_node(state: QAState) -> dict:
+    """답변 품질 검증"""
+    answer = state["answer"]
+
+    # 간단한 품질 검사
+    quality_issues = []
+
+    if "찾을 수 없습니다" in answer or "없습니다" in answer.lower():
+        quality_issues.append("답변이 불확실함")
+
+    if len(answer) < 30:
+        quality_issues.append("답변이 너무 짧음")
+
+    if quality_issues:
+        logger.warning(f"⚠️ Answer quality issues: {quality_issues}")
+        answer_quality = "needs_review"
+    else:
+        answer_quality = "good"
+
+    logger.info(f"✅ Answer quality: {answer_quality}")
+
+    return {"answer_quality": answer_quality}
+
+def should_use_fallback(state: QAState) -> str:
+    """검색 결과에 따라 분기"""
+    if state.get("has_relevant_docs", False):
+        return "generate"
+    else:
+        return "fallback"
 
 def create_qa_workflow():
     """QA LangGraph 워크플로우"""
@@ -239,12 +294,29 @@ def create_qa_workflow():
 
     # 노드 추가
     graph.add_node("retrieve", retrieve_node)
+    graph.add_node("fallback", fallback_response_node)
     graph.add_node("generate", generate_answer_node)
+    graph.add_node("verify", verify_answer_node)
 
-    # 엣지 (순차 실행)
+    # 엣지
     graph.add_edge(START, "retrieve")
-    graph.add_edge("retrieve", "generate")
-    graph.add_edge("generate", END)
+
+    # 조건부 엣지: 검색 결과에 따라 분기
+    graph.add_conditional_edges(
+        "retrieve",
+        should_use_fallback,
+        {
+            "generate": "generate",
+            "fallback": "fallback"
+        }
+    )
+
+    # fallback은 검증 없이 바로 종료
+    graph.add_edge("fallback", END)
+
+    # generate는 검증 후 종료
+    graph.add_edge("generate", "verify")
+    graph.add_edge("verify", END)
 
     return graph.compile()
 

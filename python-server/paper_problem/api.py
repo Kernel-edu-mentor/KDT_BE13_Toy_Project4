@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from paper_problem.models import ProblemRequest, ProblemResponse, AnswerCheckRequest, AnswerCheckResponse
 from paper_problem.workflow import problem_workflow
-from paper_problem.graders import answer_grader
+from paper_problem.grading_workflow import grading_workflow
 import logging, time
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ async def generate_problems(request: ProblemRequest):
 
 @router.post("/check-answer", response_model=AnswerCheckResponse)
 async def check_answer(request: AnswerCheckRequest):
-    """사용자 답변 검증 (SHORT_ANSWER, CODING 모두 지원)"""
+    """사용자 답변 검증 (SHORT_ANSWER, CODING 모두 지원) - LangGraph Workflow"""
     start_time = time.time()
 
     logger.info(
@@ -65,8 +65,14 @@ async def check_answer(request: AnswerCheckRequest):
     )
 
     try:
-        # 채점 실행
-        result = await answer_grader.grade(request.problem, request.user_answer)
+        # LangGraph 워크플로우 실행
+        workflow_result = await grading_workflow.ainvoke({
+            "problem": request.problem,
+            "user_answer": request.user_answer,
+            "retry_count": 0
+        })
+
+        result = workflow_result["grading_result"]
 
         # 응답 시간 계산
         response_time = int((time.time() - start_time) * 1000)
@@ -78,7 +84,8 @@ async def check_answer(request: AnswerCheckRequest):
 
         logger.info(
             f"Grading completed: is_correct={result['is_correct']}, "
-            f"score={result['score']}, time={response_time}ms"
+            f"score={result['score']}, time={response_time}ms, "
+            f"confidence={workflow_result.get('confidence_score', 'N/A')}"
         )
 
         return AnswerCheckResponse(**result)

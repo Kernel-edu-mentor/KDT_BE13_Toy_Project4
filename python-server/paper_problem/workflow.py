@@ -25,6 +25,7 @@ class ProblemState(TypedDict):
     validated_problems: List[Problem]
     rejection_reasons: List[str]
     retry_count: int
+    needed_count: int  # 부족한 문제 개수
 
 #노드1: 학습 내용 분석
 async def analyze_content_node(state: ProblemState) -> dict:
@@ -73,14 +74,49 @@ async def build_context_node(state: ProblemState) -> dict:
 
     return {"context": context}
 
-#노드3: 문제 생성
+#노드3: 컨텍스트 보강 (재생성 시)
+async def refine_context_node(state: ProblemState) -> dict:
+    """검증 실패 시 컨텍스트 보강"""
+    rejection_reasons = state.get("rejection_reasons", [])
+    learning_content = state["learning_content"]
+    context = state["context"]
+    validated_count = len(state.get("validated_problems", []))
+    original_count = state["problem_count"]
+
+    # 부족한 문제 개수 계산
+    needed_count = original_count - validated_count
+
+    logger.info(f"Refining context: need {needed_count} more problems")
+    logger.warning(f"Rejection reasons: {rejection_reasons[:3]}")  # 처음 3개만 로깅
+
+    # 컨텍스트 보강 (새로운 문서 추가)
+    documents = learning_content.get("documents", [])
+    enhanced_context = context_builder.enhance_context(
+        original_context=context,
+        rejection_reasons=rejection_reasons,
+        documents=documents,
+        max_tokens=4000
+    )
+
+    return {
+        "context": enhanced_context,
+        "needed_count": needed_count
+    }
+
+#노드4: 문제 생성
 async def generate_problems_node(state: ProblemState) -> dict:
     """난이도별 문제 생성"""
     difficulty = state["difficulty"]
     context = state["context"]
-    problem_count = state["problem_count"]
+    retry_count = state.get("retry_count", 0)
 
-    logger.info(f"Generating {problem_count} {difficulty} problems")
+    # 재생성 시 필요한 개수만 생성
+    if retry_count > 0:
+        problem_count = state.get("needed_count", state["problem_count"])
+        logger.info(f"Regenerating {problem_count} {difficulty} problems (retry {retry_count})")
+    else:
+        problem_count = state["problem_count"]
+        logger.info(f"Generating {problem_count} {difficulty} problems (initial)")
 
     #난이도별 생성기 선택
     if difficulty == "BEGINNER":
@@ -92,7 +128,7 @@ async def generate_problems_node(state: ProblemState) -> dict:
 
     return {"generated_problems": problems}
 
-#노드4: 문제 검증
+#노드5: 문제 검증
 async def validate_problems_node(state: ProblemState) -> dict:
     """생성된 문제 검증 및 필터링"""
     generated_problems = state["generated_problems"]
@@ -119,7 +155,7 @@ async def validate_problems_node(state: ProblemState) -> dict:
         "retry_count": retry_count + 1
     }
 
-#노드5: 재생성 판단
+#노드6: 재생성 판단
 def should_regenerate(state: ProblemState) -> str:
     """문제가 부족하면 재생성 (최대 5회)"""
     start_time = time.time()
@@ -155,6 +191,7 @@ def create_problem_workflow():
     #노드 추가
     graph.add_node("analyze", analyze_content_node)
     graph.add_node("build_context", build_context_node)
+    graph.add_node("refine_context", refine_context_node)  # 새로 추가
     graph.add_node("generate", generate_problems_node)
     graph.add_node("validate", validate_problems_node)
 
@@ -163,13 +200,14 @@ def create_problem_workflow():
     graph.add_edge("analyze", "build_context")
     graph.add_edge("build_context", "generate")
     graph.add_edge("generate", "validate")
+    graph.add_edge("refine_context", "generate")  # 보강 후 생성
 
     #조건부 엣지(재생성 판단)
     graph.add_conditional_edges(
         "validate",
         should_regenerate,
         {
-            "regenerate": "generate",   #다시 생성
+            "regenerate": "refine_context",  # 보강 먼저
             "end": END
         }
     )
