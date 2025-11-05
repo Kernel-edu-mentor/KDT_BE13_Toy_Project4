@@ -2,6 +2,7 @@ package com.paper.controller;
 
 import com.paper.client.PythonClient;
 import com.paper.dto.client.ProblemAnswerRequest;
+import com.paper.dto.client.ProblemListDto;
 import com.paper.dto.client.ProblemRequest;
 import com.paper.dto.client.ProblemResponse;
 import com.paper.dto.client.python.AnswerRequestToPython;
@@ -13,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -41,6 +44,29 @@ public class ProblemController {
                     log.error("Problems generation failed", error.getCause());
                     return Mono.just(ResponseEntity.internalServerError().build());
                 });
+    }
+
+    @GetMapping("/list")
+    public ResponseEntity<List<ProblemListDto>> getProblems(
+            @RequestParam(required = false, defaultValue = "BEGINNER") String difficulty,
+            @RequestParam(required = false) Long materialId,
+            @RequestParam(required = false) String topic
+    ) {
+        log.info("Fetching problems with difficulty: {}, materialId: {}, topic: {}", difficulty, materialId, topic);
+        List<ProblemListDto> problems;
+        if (materialId != null) {
+            problems = problemService.findAllByMaterialAndDifficulty(materialId, difficulty, topic);
+        } else {
+            problems = problemService.findAllByDifficulty(difficulty, topic);
+        }
+        return ResponseEntity.ok(problems);
+    }
+
+    @GetMapping("/topics")
+    public ResponseEntity<List<String>> getTopics() {
+        log.info("Fetching all topics");
+        List<String> topics = problemService.findAllTopics();
+        return ResponseEntity.ok(topics);
     }
 
     @PostMapping("/answer/{id}")

@@ -3,6 +3,7 @@ package com.paper.service;
 import com.paper.domain.Material;
 import com.paper.domain.Problem;
 import com.paper.dto.client.ProblemAnswerRequest;
+import com.paper.dto.client.ProblemListDto;
 import com.paper.dto.client.ProblemRequest;
 import com.paper.dto.client.ProblemResponse;
 import com.paper.dto.client.python.AnswerRequestToPython;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,7 +41,25 @@ public class ProblemService {
                     ProblemResponse problemResponse = ProblemResponse.from(response);
                     // 3. Problem 엔티티 리스트로 변환
                     List<Problem> problems = problemResponse.getProblems().stream()
-                            .map(problemDto -> Problem.from(material, response.getDifficulty(), problemDto))
+                            .map(problemDto -> {
+                                Problem problem = Problem.from(material, response.getDifficulty(), problemDto);
+                                // QA 기반 생성인 경우 topic 설정
+                                if (request.getTopic() != null) {
+                                    problem = Problem.builder()
+                                            .id(problem.getId())
+                                            .material(problem.getMaterial())
+                                            .difficulty(problem.getDifficulty())
+                                            .problemType(problem.getProblemType())
+                                            .question(problem.getQuestion())
+                                            .answer(problem.getAnswer())
+                                            .hints(problem.getHints())
+                                            .testCases(problem.getTestCases())
+                                            .topic(request.getTopic())
+                                            .createdAt(problem.getCreatedAt())
+                                            .build();
+                                }
+                                return problem;
+                            })
                             .toList();
                     // 4. 배치 저장을 위해 saveAll 사용 (N+1 방지)
                     problemRepository.saveAll(problems); // <-- saveAll 사용
@@ -54,8 +74,49 @@ public class ProblemService {
     }
 
 
-    public AnswerRequestToPython getRequestAnswer(Long id, ProblemAnswerRequest request) {
+    @Transactional(readOnly = true)
+    public List<ProblemListDto> findAllByDifficulty(String difficulty, String topic) {
+        Problem.Difficulty difficultyEnum = Problem.Difficulty.valueOf(difficulty.toUpperCase());
+        return problemRepository.findByDifficultyOrderByCreatedAtDesc(difficultyEnum).stream()
+                .filter(problem -> topic == null || topic.isEmpty() || (problem.getTopic() != null && problem.getTopic().equals(topic)))
+                .map(problem -> ProblemListDto.builder()
+                        .id(problem.getId())
+                        .question(problem.getQuestion())
+                        .difficulty(problem.getDifficulty().name())
+                        .materialId(problem.getMaterial() != null ? problem.getMaterial().getId() : null)
+                        .materialTitle(problem.getMaterial() != null ? problem.getMaterial().getTitle() : null)
+                        .topic(problem.getTopic())
+                        .build())
+                .collect(Collectors.toList());
+    }
 
+    @Transactional(readOnly = true)
+    public List<ProblemListDto> findAllByMaterialAndDifficulty(Long materialId, String difficulty, String topic) {
+        Material material = materialService.findById(materialId);
+        Problem.Difficulty difficultyEnum = Problem.Difficulty.valueOf(difficulty.toUpperCase());
+        return problemRepository.findByMaterialAndDifficultyOrderByCreatedAtDesc(material, difficultyEnum).stream()
+                .filter(problem -> topic == null || topic.isEmpty() || (problem.getTopic() != null && problem.getTopic().equals(topic)))
+                .map(problem -> ProblemListDto.builder()
+                        .id(problem.getId())
+                        .question(problem.getQuestion())
+                        .difficulty(problem.getDifficulty().name())
+                        .materialId(problem.getMaterial() != null ? problem.getMaterial().getId() : null)
+                        .materialTitle(problem.getMaterial() != null ? problem.getMaterial().getTitle() : null)
+                        .topic(problem.getTopic())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> findAllTopics() {
+        return problemRepository.findAll().stream()
+                .map(Problem::getTopic)
+                .filter(topic -> topic != null && !topic.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    public AnswerRequestToPython getRequestAnswer(Long id, ProblemAnswerRequest request) {
         Problem problem = findById(id);
         return AnswerRequestToPython.from(problem, request);
     }

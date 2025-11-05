@@ -46,6 +46,9 @@ public class Problem {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<Map<String, String>> testCases;
 
+    @Column(length = 500)
+    private String topic;  // 질문 주제 (분류용)
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

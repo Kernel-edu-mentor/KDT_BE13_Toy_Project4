@@ -29,6 +29,12 @@ public class ProblemRequestToPython {
     @Builder.Default
     private String learningTopics = null;
 
+    @JsonProperty("question")
+    private String question;  // QA 질문
+
+    @JsonProperty("answer")
+    private String answer;  // QA 답변
+
     public static ProblemRequestToPython from(ProblemRequest problemRequest) {
         return ProblemRequestToPython.builder()
                 .materialId(problemRequest.getMaterialId())
@@ -36,6 +42,8 @@ public class ProblemRequestToPython {
                 .problemCount(problemRequest.getProblemCount())
                 .learningDescription(problemRequest.getLearningDescription())
                 .learningTopics(null)
+                .question(problemRequest.getQuestion())
+                .answer(problemRequest.getAnswer())
                 .build();
     }
 }

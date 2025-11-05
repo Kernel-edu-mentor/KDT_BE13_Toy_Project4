@@ -1,22 +1,33 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, MessageSquare, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare, Plus, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getJson } from "@/lib/api";
 
 interface Problem {
-  id: string;
+  id: number;
   question: string;
+  difficulty?: string;
+  materialId?: number;
+  materialTitle?: string;
+  topic?: string;
 }
 
 interface SubmitResult {
-  correct: boolean;
-  explanation?: string;
+  is_correct: boolean;
+  score?: number;
+  feedback?: string;
+  correct_answer?: string;
+  similarity_score?: number;
+  rubric_scores?: Record<string, any>;
+  test_results?: Array<Record<string, any>>;
+  response_time_ms?: number;
 }
 
 interface ProblemCardProps {
   problem: Problem;
-  onSubmit: (id: string, answer: string, setResult: (result: SubmitResult) => void) => Promise<void>;
+  onSubmit: (id: number, answer: string, setResult: (result: SubmitResult) => void) => Promise<void>;
 }
 
 const difficulties = [
@@ -66,11 +77,46 @@ const ProblemCard = ({ problem, onSubmit }: ProblemCardProps) => {
         {submitting ? "제출 중..." : "제출"}
       </button>
       {result && (
-        <div className="text-sm space-y-1">
-          <p className={result.correct ? "text-green-600" : "text-red-600"}>
-            {result.correct ? "정답입니다!" : "오답입니다."}
-          </p>
-          {result.explanation && <p className="text-gray-600">{result.explanation}</p>}
+        <div className="text-sm space-y-2 p-4 rounded-lg bg-gray-50">
+          <div className="flex items-center gap-2">
+            <p className={`font-semibold ${result.is_correct ? "text-green-600" : "text-red-600"}`}>
+              {result.is_correct ? "✓ 정답입니다!" : "✗ 오답입니다."}
+            </p>
+            {result.score !== undefined && (
+              <span className="text-gray-600">({result.score}/100점)</span>
+            )}
+          </div>
+          
+          {result.feedback && (
+            <p className="text-gray-700 whitespace-pre-wrap">{result.feedback}</p>
+          )}
+          
+          {!result.is_correct && result.correct_answer && (
+            <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+              <p className="text-xs text-gray-600 mb-1">정답:</p>
+              <p className="text-gray-800">{result.correct_answer}</p>
+            </div>
+          )}
+          
+          {result.similarity_score !== undefined && result.similarity_score !== null && (
+            <p className="text-xs text-gray-500">
+              의미 유사도: {(result.similarity_score * 100).toFixed(1)}%
+            </p>
+          )}
+          
+          {result.rubric_scores && (
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <p className="text-xs font-semibold text-gray-600 mb-1">루브릭 점수:</p>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                {Object.entries(result.rubric_scores).map(([key, value]: [string, any]) => (
+                  <div key={key} className="flex justify-between">
+                    <span className="text-gray-600">{key}:</span>
+                    <span className="text-gray-800">{value?.score || value}/2</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -88,6 +134,8 @@ const QuizPage = () => {
   const [selectedChatId, setSelectedChatId] = useState(initialChats[0]?.id ?? null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<'qa' | 'quiz'>(location.pathname.includes("/quiz") ? "quiz" : "qa");
+  const [topics, setTopics] = useState<string[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleStartNewChat = () => {
@@ -105,6 +153,19 @@ const QuizPage = () => {
   useEffect(() => {
     setActiveTab(location.pathname.includes("/quiz") ? "quiz" : "qa");
   }, [location.pathname]);
+
+  const fetchTopics = async () => {
+    try {
+      const topicsList = await getJson<string[]>("/problems/topics");
+      setTopics(topicsList);
+    } catch (error) {
+      console.error("주제 목록 조회 실패:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTopics();
+  }, []);
 
   const handlePdfUpload = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +203,11 @@ const QuizPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/problems/list?difficulty=${encodeURIComponent(difficulty)}`);
+      let url = `/api/problems/list?difficulty=${encodeURIComponent(difficulty)}`;
+      if (selectedTopic) {
+        url += `&topic=${encodeURIComponent(selectedTopic)}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch problems");
       }
@@ -154,24 +219,28 @@ const QuizPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [difficulty]);
+  }, [difficulty, selectedTopic]);
 
   const handleSubmitAnswer = useCallback(
-    async (id: string, answer: string, setResult: (result: SubmitResult) => void) => {
+    async (id: number, answer: string, setResult: (result: SubmitResult) => void) => {
       try {
-        const response = await fetch(`/api/problems/${id}/submit`, {
+        const response = await fetch(`/api/problems/answer/${id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ answer }),
         });
         if (!response.ok) {
-          throw new Error("Failed to submit answer");
+          const errorText = await response.text();
+          throw new Error(`답안 제출 실패: ${errorText}`);
         }
         const data = await response.json();
         setResult(data);
       } catch (err) {
-        console.error(err);
-        setResult({ correct: false, explanation: "답안을 제출하는 중 문제가 발생했습니다." });
+        console.error("답안 제출 에러:", err);
+        setResult({ 
+          is_correct: false, 
+          feedback: "답안을 제출하는 중 문제가 발생했습니다. 다시 시도해주세요." 
+        });
       }
     },
     [],
@@ -283,40 +352,86 @@ const QuizPage = () => {
         <main className="flex-1 flex flex-col overflow-hidden px-4 pb-4 md:px-6">
           <div className="flex min-h-[100dvh] w-full mx-auto max-w-5xl flex-col overflow-hidden">
             <div className="flex flex-col min-h-[100dvh] rounded-3xl overflow-hidden bg-white">
-              <div className="flex items-center gap-3 px-6 pt-4">
-                <button
-                  type="button"
-                  onClick={() => pdfInputRef.current?.click()}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  title="PDF 추가"
-                >
-                  <Plus size={18} />
-                </button>
-                <input
-                  ref={pdfInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  multiple
-                  onChange={handlePdfUpload}
-                  className="hidden"
-                />
-                <Tabs
-                  value={difficulty}
-                  onValueChange={(value) => setDifficulty(value)}
-                  className="flex h-10 items-center"
-                >
-                  <TabsList className="flex h-10 items-center gap-1 rounded-full bg-muted/60 p-1">
-                    {difficulties.map((d) => (
-                      <TabsTrigger
-                        key={d.value}
-                        value={d.value}
-                        className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              <div className="flex flex-col gap-3 px-6 pt-4 border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    title="PDF 추가"
+                  >
+                    <Plus size={18} />
+                  </button>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    multiple
+                    onChange={handlePdfUpload}
+                    className="hidden"
+                  />
+                  <Tabs
+                    value={difficulty}
+                    onValueChange={(value) => setDifficulty(value)}
+                    className="flex h-10 items-center"
+                  >
+                    <TabsList className="flex h-10 items-center gap-1 rounded-full bg-muted/60 p-1">
+                      {difficulties.map((d) => (
+                        <TabsTrigger
+                          key={d.value}
+                          value={d.value}
+                          className="rounded-full px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                        >
+                          {d.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-700">주제별 분류:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTopic(null)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${
+                      selectedTopic === null
+                        ? "bg-black text-white border-black shadow-sm"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                    }`}
+                  >
+                    전체
+                  </button>
+                  {topics.length > 0 ? (
+                    topics.map((topic) => (
+                      <button
+                        key={topic}
+                        type="button"
+                        onClick={() => setSelectedTopic(topic)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition flex items-center gap-1.5 ${
+                          selectedTopic === topic
+                            ? "bg-black text-white border-black shadow-sm"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                        }`}
                       >
-                        {d.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
+                        {topic}
+                        {selectedTopic === topic && (
+                          <X
+                            size={12}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTopic(null);
+                            }}
+                            className="hover:bg-gray-700 rounded-full p-0.5"
+                          />
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400 px-2">
+                      아직 생성된 주제가 없습니다. 질문하기에서 문제를 생성해보세요.
+                    </span>
+                  )}
+                </div>
               </div>
 
               <section className="flex-1 px-6 py-4 space-y-6">
