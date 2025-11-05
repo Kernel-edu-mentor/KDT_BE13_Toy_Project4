@@ -429,8 +429,8 @@ const QuizPage = () => {
   }, [loadProblems]);
 
   return (
-    <div className="flex min-h-[100dvh] bg-white overflow-hidden">
-      <div className="relative hidden min-h-[100dvh] md:flex">
+    <div className="flex flex-1 min-h-[calc(100vh-4rem)] bg-white overflow-hidden">
+      <div className="relative hidden min-h-full md:flex">
         <aside
           className={`flex min-h-0 flex-col border-r border-gray-200 bg-[#f7f7f8] py-8 transition-all duration-300 ${
             sidebarCollapsed
@@ -543,7 +543,7 @@ const QuizPage = () => {
 
       </div>
 
-      <div className="relative flex min-h-[100dvh] flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         <header className="flex items-center justify-between gap-6 px-6 pb-6 pt-8">
           <div className="flex items-center gap-3">
             <button
@@ -666,8 +666,8 @@ const QuizPage = () => {
               {qaError && <p className="text-xs text-red-500">{qaError}</p>}
             </div>
           )}
-          <div className="flex min-h-[100dvh] w-full mx-auto max-w-5xl flex-col overflow-hidden">
-            <div className="flex flex-col min-h-[100dvh] rounded-3xl overflow-hidden bg-white">
+          <div className="flex min-h-full w-full mx-auto max-w-5xl flex-col overflow-hidden">
+            <div className="flex flex-col min-h-full rounded-3xl overflow-hidden bg-white">
               <div className="flex flex-col gap-3 px-6 pt-4 pb-4">
                 <div className="flex items-center gap-3">
                   <Tabs

@@ -57,12 +57,13 @@ const MainLayout = () => {
     sessionStorage.removeItem("ai-mentor-user");
     sessionStorage.removeItem("ai-mentor-session");
     sessionStorage.removeItem("ai-mentor-material-id");
+    sessionStorage.removeItem("qa-last-chat-id");
     
     setIsLoggedIn(false);
     setUser(null);
-    
-    // 메인 페이지로 리다이렉트
-    navigate("/");
+
+    // 메인으로 이동하며 로그인 버튼에서 카카오 인증으로 연결
+    window.location.href = "/";
   };
 
   return (

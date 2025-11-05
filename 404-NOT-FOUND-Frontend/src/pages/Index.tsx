@@ -14,6 +14,13 @@ const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
+  const handleKakaoLogin = () => {
+    const KAKAO_REST_API_KEY = "8bb25bd73474a68ce3fed3233542b7b0";
+    const KAKAO_REDIRECT_URI = "http://localhost:4000/auth/kakao/callback";
+    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=${KAKAO_REST_API_KEY}&redirect_uri=${KAKAO_REDIRECT_URI}`;
+    window.location.href = kakaoAuthUrl;
+  };
+
   useEffect(() => {
     // sessionStorage에서 로그인 상태 확인
     const userStr = sessionStorage.getItem("ai-mentor-user");
@@ -65,23 +72,13 @@ const Index = () => {
               </Button>
             </>
           ) : (
-            <>
-              <Button
-                onClick={() => navigate("/auth")}
-                size="lg"
-                className="h-14 px-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-lg"
-              >
-                로그인 하기
-              </Button>
-              <Button
-                onClick={() => navigate("/dashboard")}
-                size="lg"
-                variant="outline"
-                className="h-14 px-8 rounded-full text-lg"
-              >
-                둘러보기
-              </Button>
-            </>
+            <Button
+              onClick={handleKakaoLogin}
+              size="lg"
+              className="h-14 px-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-lg transition transform hover:-translate-y-1"
+            >
+              로그인 하기
+            </Button>
           )}
         </div>
       </div>
@@ -93,7 +90,7 @@ const Index = () => {
             님, AI 멘토와 함께 학습 여정을 계속하세요.
           </>
         ) : (
-          "지금 바로 AI 멘토와 함께 학습 여정을 시작해 보세요."
+          "카카오 계정으로 간편하게 로그인하고 AI 멘토와 학습 여정을 시작해 보세요."
         )}
       </p>
     </section>

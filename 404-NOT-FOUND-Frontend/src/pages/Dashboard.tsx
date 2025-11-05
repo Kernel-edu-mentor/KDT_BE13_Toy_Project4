@@ -97,7 +97,9 @@ const Dashboard = () => {
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [chats, setChats] = useState<QAChat[]>([]);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(() =>
+    sessionStorage.getItem("qa-last-chat-id")
+  );
   const [activeTab, setActiveTab] = useState<"qa" | "quiz">("qa");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [messageFeedback, setMessageFeedback] = useState<Record<string, "like" | "dislike" | null>>({});
@@ -118,6 +120,7 @@ const Dashboard = () => {
   const [selectedAnswerMessageId, setSelectedAnswerMessageId] = useState<string | null>(null); // 선택한 답변 메시지 ID
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatNameInputRef = useRef<HTMLInputElement | null>(null);
+  const lastMessageRef = useRef<HTMLDivElement | null>(null);
 
   const hasMessages = messages.length > 0;
 
@@ -202,6 +205,7 @@ const Dashboard = () => {
     setUploadMessage(`"${selectedMaterial.title}" 자료가 선택되었습니다.`);
     setMessages([]);
     setSelectedChatId(null);
+    sessionStorage.removeItem("qa-last-chat-id");
     setChatHistories({});
   };
 
@@ -278,10 +282,37 @@ const Dashboard = () => {
       return;
     }
 
-    if (!selectedChatId) {
-      setQaError("채팅을 먼저 생성하거나 선택해주세요.");
+    let chatId = selectedChatId;
+
+    if (!chatId) {
+      try {
+        const chat = await postJson<QAChat>("/qa/chats", {
+          title: `새 채팅 ${chats.length + 1}`,
+          materialId: Number(materialId),
+        });
+        chatId = String(chat.id);
+        setSelectedChatId(chatId);
+        sessionStorage.setItem("qa-last-chat-id", chatId);
+        await fetchChats();
+        setMessages([]);
+        setChatHistories((prev) => ({
+          ...prev,
+          [chatId]: [],
+        }));
+      } catch (error) {
+        console.error("새 채팅 생성 실패:", error);
+        setQaError("새 채팅을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+    }
+
+    if (!chatId) {
+      setQaError("채팅을 생성하지 못했습니다.");
       return;
     }
+
+    const chatKey = chatId;
+    sessionStorage.setItem("qa-last-chat-id", chatKey);
 
     const question = inputValue.trim();
     const userMessage: Message = {
@@ -289,14 +320,17 @@ const Dashboard = () => {
       role: "user",
       content: question,
     };
-    const chatId = selectedChatId;
 
     setMessages((prev) => {
-      const updated = [...prev, userMessage];
+      const baseMessages = chatHistories[chatKey] ?? prev;
+      const updated = [...baseMessages, userMessage];
       setChatHistories((histories) => ({
         ...histories,
-        [chatId]: updated,
+        [chatKey]: updated,
       }));
+      requestAnimationFrame(() => {
+        lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return updated;
     });
     setInputValue("");
@@ -319,8 +353,11 @@ const Dashboard = () => {
         const updated = [...prev, answerMessage];
         setChatHistories((histories) => ({
           ...histories,
-          [chatId]: updated,
+          [chatKey]: updated,
         }));
+        requestAnimationFrame(() => {
+          lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
         return updated;
       });
 
@@ -345,6 +382,10 @@ const Dashboard = () => {
       setIsSending(false);
     }
   };
+
+  useEffect(() => {
+    lastMessageRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+  }, [messages, selectedChatId]);
 
   const handleOpenDifficultyDialog = (answerMessageId: string) => {
     setSelectedAnswerMessageId(answerMessageId);
@@ -414,6 +455,7 @@ const Dashboard = () => {
       const chatId = String(chat.id);
       await fetchChats();
       setSelectedChatId(chatId);
+      sessionStorage.setItem("qa-last-chat-id", chatId);
       setMessages([]);
       setInputValue("");
       setChatHistories((prev) => ({
@@ -429,6 +471,7 @@ const Dashboard = () => {
   const handleSelectChat = (chatId: string) => {
     if (editingChatId !== chatId) {
       setSelectedChatId(chatId);
+      sessionStorage.setItem("qa-last-chat-id", chatId);
       const cachedMessages = chatHistories[chatId];
       if (cachedMessages) {
         setMessages(cachedMessages);
@@ -478,10 +521,12 @@ const Dashboard = () => {
 
           if (updatedChats.length === 0) {
             setMessages([]);
+            sessionStorage.removeItem("qa-last-chat-id");
             return null;
           }
 
           const nextId = String(updatedChats[0].id);
+          sessionStorage.setItem("qa-last-chat-id", nextId);
           const cached = chatHistories[nextId];
           if (cached) {
             setMessages(cached);
@@ -499,7 +544,6 @@ const Dashboard = () => {
         const { [chatId]: _, ...rest } = prev;
         return rest;
       });
-
       await fetchChats();
     } catch (error) {
       console.error("채팅 삭제 실패:", error);
@@ -549,15 +593,19 @@ const Dashboard = () => {
 
       if (chatList.length === 0) {
         setSelectedChatId(null);
+        sessionStorage.removeItem("qa-last-chat-id");
         setMessages([]);
         return;
       }
 
       setSelectedChatId((prev) => {
         if (prev && chatList.some((chat) => String(chat.id) === prev)) {
+          sessionStorage.setItem("qa-last-chat-id", prev);
           return prev;
         }
-        return String(chatList[0].id);
+        const latestId = String(chatList[0].id);
+        sessionStorage.setItem("qa-last-chat-id", latestId);
+        return latestId;
       });
     };
 
@@ -581,10 +629,10 @@ const Dashboard = () => {
   }, [selectedChatId, chatHistories, loadChatSessions]);
 
   return (
-    <div className="flex min-h-[100dvh] bg-white overflow-hidden">
-      <div className="relative hidden min-h-[100dvh] md:flex">
+    <div className="flex flex-1 min-h-[calc(100vh-4rem)] bg-white overflow-hidden">
+      <div className="relative hidden min-h-full md:flex">
         <aside
-          className={`flex min-h-[100dvh] flex-col border-r border-gray-200 bg-[#f7f7f8] py-8 transition-all duration-300 ${
+          className={`flex min-h-full flex-col border-r border-gray-200 bg-[#f7f7f8] py-8 transition-all duration-300 ${
             sidebarCollapsed
               ? "w-0 px-0 opacity-0 pointer-events-none"
               : "w-72 px-6 opacity-100"
@@ -698,7 +746,7 @@ const Dashboard = () => {
         
       </div>
 
-      <div className="relative flex min-h-[100dvh] flex-1 flex-col">
+      <div className="relative flex flex-1 flex-col">
         <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
 
         <header className="flex items-center justify-between gap-6 px-6 pb-6 pt-8">
@@ -779,7 +827,7 @@ const Dashboard = () => {
               )}
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-2">
             <button
               type="button"
               onClick={() => {
@@ -811,22 +859,24 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <main className="relative flex-1 flex flex-col px-4 md:px-6 pb-0">
+        <main className="relative flex flex-1 flex-col px-4 md:px-6 pb-0">
           {hasMessages ? (
             <ScrollArea className="flex-1 px-1">
               <div className="max-w-4xl mx-auto w-full space-y-4 py-4 pb-32">
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   const isUser = message.role === "user";
                   const feedback = messageFeedback[message.id];
+                  const isLast = index === messages.length - 1;
                   return (
                     <div
                       key={message.id}
+                      ref={isLast ? lastMessageRef : undefined}
                       className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                     >
                       <div className="flex max-w-[80%] flex-col">
                         <div
-                          className={`rounded-2xl px-5 py-3 text-sm shadow-sm ${
-                            isUser ? "bg-black text-white" : "bg-gray-100 text-gray-800"
+                          className={`rounded-xl px-6 py-4 text-sm leading-relaxed ${
+                            isUser ? "bg-black text-white" : "bg-white/80 text-gray-800"
                           }`}
                         >
                           {message.content}
@@ -888,7 +938,7 @@ const Dashboard = () => {
             </ScrollArea>
           ) : (
             <div className="flex flex-1 items-center justify-center px-4">
-              <div className="w-full max-w-xl text-center space-y-4">
+              <div className="w-full max-w-xl text-center space-y-4 -translate-y-6">
                 <h2 className="text-2xl font-semibold text-gray-800">학습을 시작할 준비가 되셨나요?</h2>
                 <div className="relative">
                   <button
@@ -923,35 +973,37 @@ const Dashboard = () => {
             </div>
           )}
 
-          {hasMessages && (
-            <div className="sticky bottom-0 left-0 right-0 bg-white px-4 py-4">
-              <div className="relative max-w-3xl mx-auto">
-                <button
-                  type="button"
-                  onClick={handleFileButtonClick}
-                  className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent text-gray-500 transition hover:text-gray-700"
-                  aria-label="파일 업로드"
-                >
-                  <Paperclip size={16} />
-                </button>
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="무엇이든 물어보세요"
-                  className="h-12 rounded-full border border-gray-300 pl-14 pr-6 text-base text-gray-700 shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                  disabled={isSending}
-                />
-              </div>
-              {uploadMessage && <p className="mt-2 text-sm text-blue-600">{uploadMessage}</p>}
-              {qaError && <p className="text-xs text-red-500">{qaError}</p>}
+          <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur px-4 py-4">
+            <div className="relative max-w-3xl mx-auto">
+              <button
+                type="button"
+                onClick={handleFileButtonClick}
+                className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent text-gray-500 transition hover:text-gray-700"
+                aria-label="파일 업로드"
+              >
+                <Paperclip size={16} />
+              </button>
+              <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="무엇이든 물어보세요"
+                className="h-12 rounded-full border border-gray-300 pl-14 pr-6 text-base text-gray-700 shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                disabled={isSending}
+              />
             </div>
-          )}
+            {uploadMessage && (
+              <p className="mt-2 text-xs text-gray-500 text-center">
+                {uploadMessage}
+              </p>
+            )}
+            {qaError && <p className="text-xs text-red-500 text-center">{qaError}</p>}
+          </div>
         </main>
       </div>
 
