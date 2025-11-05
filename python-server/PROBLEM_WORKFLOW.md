@@ -4,7 +4,7 @@ LLM 기반 학습 문제 자동 생성 시스템의 LangGraph 워크플로우
 
 ---
 
-## Problem Workflow
+## Problem Workflow (개선됨 ✨)
 
 ```mermaid
 graph TD
@@ -15,13 +15,15 @@ graph TD
     Validate --> Decision{should_regenerate<br/>재생성 판단<br/><b>⏱️ ~0.01초</b>}
 
     Decision -->|충분한 문제<br/>또는<br/>최대 재시도| End([END])
-    Decision -->|문제 부족<br/>retry < 5| Generate
+    Decision -->|문제 부족<br/>retry < 5| Refine[refine_context_node ✨<br/>컨텍스트 보강<br/><b>⏱️ 1초</b>]
+    Refine --> Generate
 
     style Analyze fill:#e1f5ff
     style Build fill:#fff4e1
     style Generate fill:#ffe5e5
     style Validate fill:#e5f5e5
     style Decision fill:#ffe5f5
+    style Refine fill:#ffe5ff
 ```
 
 ### 성능 지표
@@ -54,6 +56,7 @@ classDiagram
         +List~Problem~ validated_problems
         +List~str~ rejection_reasons
         +int retry_count
+        +int needed_count ✨
     }
 
     class Problem {
@@ -499,6 +502,36 @@ graph TD
 
 ---
 
+## 노드 6: refine_context_node (⏱️ 1초) ✨
+
+### 컨텍스트 보강 과정
+
+```mermaid
+flowchart TD
+    A[rejection_reasons] --> B[거절 사유 분석<br/><i>~0.01초</i>]
+    B --> C[사용하지 않은<br/>페이지 추출<br/><i>~0.1초</i>]
+    C --> D[새 문서 추가<br/>max_tokens=4000<br/><i>~0.1초</i>]
+    D --> E[needed_count 계산<br/><i>~0.01초</i>]
+    E --> F[enhanced_context +<br/>needed_count 반환]
+
+    style B fill:#ffe5ff
+    style C fill:#e5f5ff
+    style D fill:#fff4e1
+```
+
+**처리 내용:**
+1. **거절 사유 분석**: rejection_reasons 로깅 (처음 3개)
+2. **사용하지 않은 페이지 추출**: 기존 context에서 이미 사용한 페이지 제외
+3. **컨텍스트 보강**: 새 문서를 추가하여 enhanced_context 생성 (max 4000 토큰)
+4. **필요 개수 계산**: `needed_count = problem_count - len(validated_problems)`
+
+**개선 효과:**
+- **다양성**: 매번 같은 context 재사용 X → 새 문서로 다양한 문제 생성
+- **효율성**: 필요한 개수만 생성 (3개 중 1개 통과 → 2개만 생성)
+- **품질**: rejection_reasons 로깅으로 개선 방향 파악
+
+---
+
 ## 전체 시스템 아키텍처
 
 ```mermaid
@@ -651,3 +684,139 @@ graph TB
     style WF fill:#fff4e1
     style GEN fill:#e1f5ff
 ```
+
+---
+
+## Grading Workflow (새로 추가 ✨)
+
+답변 채점을 위한 LangGraph 워크플로우
+
+```mermaid
+graph TD
+    Start([START]) --> ValidateInput[validate_input_node<br/>입력 검증<br/><b>⏱️ 0.1초</b>]
+    ValidateInput --> Grade[grade_answer_node<br/>채점 실행<br/><b>⏱️ 0.5~2초</b>]
+    Grade --> Verify[verify_result_node<br/>결과 검증<br/><b>⏱️ 0.1초</b>]
+
+    Verify --> Decision{신뢰도<br/>충분?}
+    Decision -->|Yes| End([END])
+    Decision -->|No<br/>retry < 2| Grade
+
+    style ValidateInput fill:#e1f5ff
+    style Grade fill:#ffe5e5
+    style Verify fill:#e5f5e5
+    style Decision fill:#ffe5f5
+```
+
+### 성능 지표
+
+| 단계 | 평균 시간 | 주요 작업 |
+|------|---------|----------|
+| **Validate Input** | 0.1초 | 빈 답변 체크 + 문제 타입 검증 |
+| **Grade** | 0.5~2초 | SHORT_ANSWER (LLM) / CODING (실행) |
+| **Verify** | 0.1초 | confidence_score 검증 (≥ 0.3) |
+| **Total** | **0.5~2.5초** | 초기 채점 + 재채점 시 +0.5초 |
+
+---
+
+### State: GradingState
+
+```mermaid
+classDiagram
+    class GradingState {
+        +Problem problem
+        +str user_answer
+        +Dict grading_result
+        +bool is_verified
+        +int retry_count
+        +float confidence_score ✨
+    }
+```
+
+**핵심 필드:**
+- `confidence_score`: LLM 채점 신뢰도 (0.0~1.0, similarity_score 기반)
+- `is_verified`: 검증 통과 여부 (confidence ≥ 0.3 and 점수 범위 유효)
+
+---
+
+### 노드 1: validate_input_node
+
+```mermaid
+flowchart TD
+    A[problem + user_answer] --> B{빈 답변?}
+    B -->|Yes| C[score=0<br/>is_verified=True]
+    B -->|No| D{유효한<br/>problem_type?}
+    D -->|No| E[에러 메시지<br/>is_verified=True]
+    D -->|Yes| F[검증 통과]
+
+    style C fill:#ffe5e5
+    style E fill:#ffe5e5
+    style F fill:#e5f5e5
+```
+
+**처리 내용:**
+- 빈 답변 조기 필터링 (LLM 호출 방지)
+- 문제 타입 검증 (SHORT_ANSWER/CODING)
+- is_verified=True 설정 시 grade 노드 스킵
+
+---
+
+### 노드 2: grade_answer_node
+
+```mermaid
+flowchart TD
+    A[problem + user_answer] --> B{problem_type}
+    B -->|SHORT_ANSWER| C[ShortAnswerGrader<br/>LLM 의미 유사도]
+    B -->|CODING| D[CodingGrader<br/>코드 실행]
+    C --> E[grading_result +<br/>confidence_score]
+    D --> E
+
+    style C fill:#e1f5ff
+    style D fill:#ffe5e5
+```
+
+**채점자:**
+- **ShortAnswerGrader**: LLM으로 similarity_score 계산
+- **CodingGrader**: 실제 코드 실행 + 테스트 케이스 검증
+
+---
+
+### 노드 3: verify_result_node
+
+```mermaid
+flowchart TD
+    A[grading_result] --> B{confidence<br/>< 0.3?}
+    B -->|Yes| C[is_verified=False<br/>재채점 필요]
+    B -->|No| D{점수 범위<br/>0~100?}
+    D -->|No| E[is_verified=False]
+    D -->|Yes| F[is_verified=True]
+
+    style C fill:#ffe5e5
+    style E fill:#ffe5e5
+    style F fill:#e5f5e5
+```
+
+**검증 항목:**
+1. confidence_score ≥ 0.3
+2. 0 ≤ score ≤ 100
+3. 필수 필드 존재
+
+---
+
+### 조건부 분기
+
+```python
+def should_retry(state: GradingState) -> str:
+    if state["is_verified"]:
+        return "end"
+
+    if state["retry_count"] >= 2:
+        return "end"  # 최대 재시도
+
+    return "retry"  # 재채점
+```
+
+**재채점 조건:**
+- 신뢰도 낮음 (< 0.3)
+- 점수 범위 오류
+- 최대 2회까지 재시도
+

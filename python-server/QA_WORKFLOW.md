@@ -124,25 +124,37 @@ sequenceDiagram
 
 ---
 
-## QA Workflow
+## QA Workflow (개선됨 ✨)
 
 ```mermaid
 graph TD
-    Start([START]) --> Retrieve[retrieve_node<br/>문서 검색<br/><b>⏱️ 0.2~0.3초</b>]
-    Retrieve --> Generate[generate_answer_node<br/>답변 생성<br/><b>⏱️ 0.8~1.0초</b>]
-    Generate --> End([END])
+    Start([START]) --> Retrieve[retrieve_node<br/>문서 검색 + 관련성 검증<br/><b>⏱️ 0.2~0.3초</b>]
+
+    Retrieve --> Decision{관련 문서<br/>있음?}
+
+    Decision -->|Yes| Generate[generate_answer_node<br/>답변 생성<br/><b>⏱️ 0.8~1.0초</b>]
+    Decision -->|No| Fallback[fallback_response_node<br/>안내 메시지<br/><b>⏱️ 0.01초</b>]
+
+    Generate --> Verify[verify_answer_node<br/>답변 품질 검증<br/><b>⏱️ 0.05초</b>]
+
+    Verify --> End([END])
+    Fallback --> End
 
     style Retrieve fill:#e1f5ff
     style Generate fill:#fff4e1
+    style Fallback fill:#ffe5e5
+    style Verify fill:#e5f5e5
 ```
 
 ### 성능 지표
 
 | 단계 | 평균 시간 | 주요 작업 |
 |------|---------|----------|
-| **Retrieve** | 0.2~0.3초 | 질문 임베딩 + ChromaDB 검색 (k=3) |
+| **Retrieve** | 0.2~0.3초 | 질문 임베딩 + ChromaDB 검색 (k=5) + 관련성 검증 |
 | **Generate** | 0.8~1.0초 | 컨텍스트 구성 + Solar LLM 응답 생성 |
-| **Total** | **1.0~1.3초** | 전체 QA 응답 시간 |
+| **Verify** | 0.05초 | 답변 품질 검사 (길이, 키워드 체크) |
+| **Fallback** | 0.01초 | 안내 메시지 반환 |
+| **Total** | **1.0~1.5초** (normal) / **0.2~0.3초** (fallback) | 전체 QA 응답 시간 |
 
 ### State: QAState
 
@@ -155,28 +167,42 @@ classDiagram
         +str answer
         +List~Dict~ sources
         +float response_time
+        +bool has_relevant_docs ✨
+        +str answer_quality ✨
     }
 ```
 
-### retrieve_node (⏱️ 0.2~0.3초)
+**새로 추가된 필드:**
+- `has_relevant_docs`: 검색된 문서가 질문과 관련 있는지 여부 (distance < 0.5)
+- `answer_quality`: 답변 품질 ("good", "needs_review", "fallback")
+
+### retrieve_node (⏱️ 0.2~0.3초) ✨
 
 ```mermaid
 flowchart TD
     A[질문 입력] --> B[Upstage Embedding API<br/>질문 임베딩<br/><i>~0.1초</i>]
-    B --> C[ChromaDB 검색<br/>n_results=3<br/>filter: material_id<br/><i>~0.1초</i>]
+    B --> C[ChromaDB 검색<br/>n_results=5 ✨<br/>filter: material_id<br/><i>~0.1초</i>]
     C --> D[유사도 계산<br/>Cosine Distance<br/><i>~0.01초</i>]
-    D --> E[상위 3개 청크<br/>retrieved_docs<br/><i>~0.01초</i>]
+    D --> E{best distance<br/>< 0.5?}
+    E -->|Yes| F[has_relevant_docs=True<br/>상위 5개 청크 반환]
+    E -->|No| G[has_relevant_docs=False<br/>경고 로깅]
 
     style B fill:#ffe5e5
     style C fill:#e5f5e5
     style D fill:#fff4e1
+    style E fill:#ffe5ff
 ```
+
+**개선 사항:**
+1. **검색 개수 증가** (~0.1초): k=3 → k=5 (더 많은 후보 확보)
+2. **관련성 검증 추가** (~0.01초): 최고 유사도가 0.5 이상인지 체크
+3. **조건부 분기 준비**: has_relevant_docs 플래그로 다음 노드 결정
 
 **세부 처리 단계**:
 1. **질문 임베딩 생성** (~0.1초): Upstage API를 통해 4096차원 벡터 생성
-2. **벡터 유사도 검색** (~0.1초): ChromaDB에서 코사인 거리 기반 검색
-3. **결과 필터링** (~0.01초): material_id로 필터링, 상위 3개 선택
-4. **응답 구성** (~0.01초): 문서 내용, 페이지, 메타데이터 포맷팅
+2. **벡터 유사도 검색** (~0.1초): ChromaDB에서 코사인 거리 기반 검색 (k=5)
+3. **관련성 판단** (~0.01초): distance < 0.5 여부로 has_relevant_docs 설정
+4. **응답 구성** (~0.01초): 문서 내용, 페이지, 메타데이터 + 검증 플래그
 
 #### 검색 과정
 
@@ -194,6 +220,33 @@ sequenceDiagram
     DB-->>R: Top 3 청크
     Note over R: 청크1: distance=0.12<br/>청크2: distance=0.18<br/>청크3: distance=0.24
 ```
+
+### fallback_response_node (⏱️ 0.01초) ✨
+
+```mermaid
+flowchart TD
+    A[has_relevant_docs=False] --> B[안내 메시지 생성<br/><i>~0.01초</i>]
+    B --> C[sources = []<br/>answer_quality = fallback]
+
+    style B fill:#ffe5e5
+    style C fill:#fff4e1
+```
+
+**처리 내용:**
+1. 관련 문서가 없을 때 사용자 친화적인 메시지 반환
+2. 질문을 더 구체적으로 작성하도록 안내
+3. LLM 호출 없이 즉시 응답 (빠름)
+
+**메시지 예시:**
+```
+"죄송합니다. 업로드하신 학습자료에서 '{question}'에 대한
+관련 내용을 찾을 수 없습니다.
+
+다른 질문을 해주시거나, 질문을 더 구체적으로 작성해주시면
+도움이 될 것 같습니다."
+```
+
+---
 
 ### generate_answer_node (⏱️ 0.8~1.0초)
 
@@ -233,6 +286,34 @@ sequenceDiagram
     A->>A: 출처 정보 추가
     Note over A: answer<br/>+ sources (100자 excerpt)
 ```
+
+### verify_answer_node (⏱️ 0.05초) ✨
+
+```mermaid
+flowchart TD
+    A[answer] --> B{품질 검사}
+    B --> C[불확실 키워드 체크<br/>'찾을 수 없습니다' 등]
+    B --> D[답변 길이 체크<br/>최소 30자]
+    C --> E{이슈 발견?}
+    D --> E
+    E -->|Yes| F[answer_quality=needs_review<br/>경고 로깅]
+    E -->|No| G[answer_quality=good]
+
+    style B fill:#e5f5ff
+    style E fill:#ffe5ff
+    style F fill:#ffe5e5
+    style G fill:#e5f5e5
+```
+
+**검증 항목:**
+1. **불확실성 키워드**: "찾을 수 없습니다", "없습니다" 등
+2. **답변 길이**: 최소 30자 이상
+3. **품질 등급**: good / needs_review / fallback
+
+**처리 결과:**
+- `answer_quality="good"`: 정상적인 답변
+- `answer_quality="needs_review"`: 불확실하거나 짧은 답변 (경고 로깅)
+- `answer_quality="fallback"`: 관련 문서 없음 (fallback_node에서 설정)
 
 ---
 

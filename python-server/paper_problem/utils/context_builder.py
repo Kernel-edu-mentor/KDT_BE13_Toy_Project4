@@ -117,5 +117,71 @@ class ContextBuilder:
         context = "\n\n---\n\n".join(context_parts)
         return context
 
+    def enhance_context(
+        self,
+        original_context: str,
+        rejection_reasons: List[str],
+        documents: List[Dict[str, Any]],
+        max_tokens: int = 4000
+    ) -> str:
+        """검증 실패 시 컨텍스트 보강
+
+        Args:
+            original_context: 기존 컨텍스트
+            rejection_reasons: 거절 사유 리스트
+            documents: 추가할 수 있는 문서들
+            max_tokens: 최대 토큰 수
+
+        Returns:
+            보강된 컨텍스트
+        """
+        logger.info(f"Enhancing context (rejection_reasons: {len(rejection_reasons)})")
+
+        # 기존 컨텍스트에 포함된 페이지 추출
+        used_pages = set()
+        for line in original_context.split('\n'):
+            if '[페이지' in line:
+                try:
+                    page_num = int(line.split('페이지')[1].split(']')[0].strip())
+                    used_pages.add(page_num)
+                except:
+                    pass
+
+        # 사용하지 않은 문서에서 추가
+        additional_parts = []
+        current_tokens = len(original_context) // 4  # 기존 컨텍스트 토큰
+
+        for doc in documents:
+            if current_tokens >= max_tokens:
+                break
+
+            content = doc.get("content", "")
+            page = doc.get("page", "알 수 없음")
+
+            # 이미 사용한 페이지는 스킵
+            if isinstance(page, int) and page in used_pages:
+                continue
+
+            doc_tokens = max(1, len(content) // 4)
+
+            if current_tokens + doc_tokens > max_tokens:
+                break
+
+            additional_parts.append(f"[페이지 {page}]\n{content}")
+            current_tokens += doc_tokens
+
+            if isinstance(page, int):
+                used_pages.add(page)
+
+        # 기존 + 추가 컨텍스트 결합
+        if additional_parts:
+            enhanced_context = original_context + "\n\n---\n\n" + "\n\n---\n\n".join(additional_parts)
+            logger.info(f"Enhanced context: added {len(additional_parts)} new documents")
+        else:
+            enhanced_context = original_context
+            logger.warning("No additional documents available for enhancement")
+
+        return enhanced_context
+
 
 context_builder = ContextBuilder()
