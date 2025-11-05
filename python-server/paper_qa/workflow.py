@@ -3,7 +3,6 @@ from typing import TypedDict, List, Dict
 from shared.chroma_client import chroma_client
 from shared.upstage_client import upstage_client
 from paper_qa.parsers.pdf_parser import pdf_parser
-from paper_qa.parsers.ppt_parser import ppt_parser
 from langchain_upstage import ChatUpstage
 from langchain.schema import HumanMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -33,8 +32,6 @@ async def parse_document_node(state: UploadState) -> dict:
 
     if file_type == "pdf":
         parsed_blocks = await pdf_parser.parse(file_path)
-    elif file_type == "ppt":
-        parsed_blocks = ppt_parser.parse(file_path)
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
 

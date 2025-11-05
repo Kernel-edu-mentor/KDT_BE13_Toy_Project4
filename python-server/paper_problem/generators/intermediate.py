@@ -1,42 +1,17 @@
 # paper_problem/generators/intermediate.py
-from langchain_upstage import ChatUpstage
-from langchain.schema import HumanMessage
-from typing import List, Dict, Any
+from paper_problem.generators.base_generator import BaseProblemGenerator
 from paper_problem.models import Problem
-from shared.upstage_client import upstage_client
-import json
-import logging, re
+from typing import List
+import logging
 
 logger = logging.getLogger(__name__)
 
-def clean_and_parse_json(json_string: str) -> List[Dict[str, Any]]:
-    """
-    Solves common JSON parsing errors (like single quotes) in LLM responses before parsing.
-    """
-    try:
-        # Step 1: Replace single-quoted strings within objects/arrays with double quotes
-        # Pattern: ([\[:]) - Array start or colon, \s* - whitespace, ' - single quote start,
-        # ([^']*?) - capture non-single quote chars, ' - single quote end
-        cleaned_string = re.sub(r"([\[:])\s*'([^']*?)'", r'\1"\2"', json_string)
 
-        # Step 2: Fix trailing commas (e.g., {"key": "value",})
-        cleaned_string = re.sub(r",\s*([}\]])", r'\1', cleaned_string)
-
-        # Step 3: Attempt final parsing
-        return json.loads(cleaned_string)
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse JSON even after cleaning: {e}")
-        # Return empty list on final failure
-        return []
-
-class IntermediateProblemGenerator:
+class IntermediateProblemGenerator(BaseProblemGenerator):
     """중급 실습 문제 생성"""
 
     def __init__(self):
-        self.llm = upstage_client.get_chat_model(
-            model="solar-1-mini-chat", temperature=0.8  # 더 다양한 문제 생성
-        )
+        super().__init__(temperature=0.8)  # 더 다양한 문제 생성
 
     async def generate(self, context: str, count: int = 3) -> List[Problem]:
         """중급 문제 생성"""
@@ -82,55 +57,10 @@ class IntermediateProblemGenerator:
 
 **필수**: 위 예시는 JSON 구조만 참고하고, 실제 문제 내용은 반드시 제공된 학습 내용에서만 생성할 것!"""
 
-        # response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-        #
-        # try:
-        #     problems_data = json.loads(response.content)
-        #     problems = [Problem(**p) for p in problems_data]
-        #     logger.info(f"Generated {len(problems)} intermediate problems")
-        #     return problems
-        # except json.JSONDecodeError as e:
-        #     logger.error(f"Failed to parse JSON : {e}")
-        #     logger.error(f"Response : {response.content}")
-        #     return []
-
-        # 1. Json 출력 강제 (LangChain을 통헤 response_format 설정을 config로 전달.
-        response = await self.llm.ainvoke([HumanMessage(content=prompt)],
-                                          config={"response_format": {"type": "json_object"}}
-                                          )
-
-        problems_data = None
-
-        try:
-            # 2. 1차 시도 : 일반 JSON 파싱 (JSON 모드 강제로 대부분 성공 기대)
-            problems_data = json.loads(response.content)
-            # problems = [Problem(**p) for p in problems_data]
-            # logger.info(f"Generated {len(problems)} beginner problems")
-            # return problems
-        except json.JSONDecodeError as e:
-            # 3. 1차 실패 시 : 문자열 클렌징 후 2차 시도 (오류 복구 로직)
-            logger.warning(f"Initial JSON parse failed: {e}. Attempting cleanup and re-parse.")
-            try:
-                problems_data = clean_and_parse_json(response.content)
-            except Exception:
-                # 클렌징 후에도 실패하면 최종 실패
-                logger.error("Final attempt to parse JSON failed after cleanup.")
-                return []
-
-        # 4. 파싱된 데이터가 유효한지 확인
-        if problems_data:
-            try:
-                # 파싱된 JSON 데이터를 Problem 모델 리스트로 변환
-                problems = [Problem(**p) for p in problems_data]
-                logger.info(f"Generated {len(problems)} beginner problems")
-                return problems
-            except Exception as e:
-                # 모델 구조와 맞지 않는 필드 등이 있을 경우의 에러 처리
-                logger.error(f"Failed to validate problem structure after parsing: {e}")
-                return []
-        else:
-            logger.error(f"Response data was empty or invalid: {response.content}")
-            return []
+        # LLM 호출 및 JSON 파싱 (베이스 클래스 메서드 사용)
+        response_content = await self._invoke_llm_with_json_mode(prompt)
+        problems_data = self._parse_llm_response(response_content)
+        return self._create_problems(problems_data, "intermediate")
 
 
 intermediate_generator = IntermediateProblemGenerator()

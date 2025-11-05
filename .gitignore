@@ -20,3 +20,5 @@ python-server/CLAUDE.md
 python-server/data/materials
 spring-server/paper/uploads
 /python-server/TROUBLESHOOTING.md
+.DS_Stroe
+*/*/.DS_Store
