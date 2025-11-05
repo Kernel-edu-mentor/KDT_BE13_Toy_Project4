@@ -1,8 +1,7 @@
 package com.paper.service;
 
 import com.paper.domain.Material;
-import com.paper.dto.MaterialResponse;
-import com.paper.dto.client.MaterialUploadRequest;
+import com.paper.dto.client.ProblemAnswerRequest;
 import com.paper.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,10 +61,10 @@ public class MaterialService {
     }
 
     @Transactional(readOnly = true)
-    public List<MaterialResponse> findAll() {
+    public List<ProblemAnswerRequest.MaterialResponse> findAll() {
         return materialRepository.findAll().stream()
-                .map(MaterialResponse::from)
-                .sorted(Comparator.comparing(MaterialResponse::getCreatedAt).reversed())
+                .map(ProblemAnswerRequest.MaterialResponse::from)
+                .sorted(Comparator.comparing(ProblemAnswerRequest.MaterialResponse::getCreatedAt).reversed())
                 .collect(Collectors.toList());
     }
 }

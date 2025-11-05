@@ -1,8 +1,7 @@
 package com.paper.controller;
 
 import com.paper.client.PythonClient;
-import com.paper.dto.client.QARequest;
-import com.paper.dto.client.QAResponse;
+import com.paper.dto.client.python.MaterialUploadRequest;
 import com.paper.service.QAService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +24,8 @@ public class QAController {
     private final QAService qaService;
 
     @PostMapping("/ask")
-    public Mono<ResponseEntity<QAResponse>> askQuestion (
-            @Valid @RequestBody QARequest request
+    public Mono<ResponseEntity<MaterialUploadRequest.QAResponse>> askQuestion (
+            @Valid @RequestBody MaterialUploadRequest.QARequest request
             //@AuthenticationPrincipal UserDetails userDetails
     ) {
 
@@ -53,7 +52,7 @@ public class QAController {
                     }
                     
                     // 에러 응답 생성 (QAResponse 형식으로)
-                    QAResponse errorResponse = QAResponse.builder()
+                    MaterialUploadRequest.QAResponse errorResponse = MaterialUploadRequest.QAResponse.builder()
                             .answer(errorMessage)
                             .responseTimeMs(0)
                             .build();

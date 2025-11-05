@@ -1,10 +1,8 @@
 package com.paper.client;
 
 import com.paper.dto.TestResponse;
-import com.paper.dto.client.MaterialUploadRequest;
-import com.paper.dto.client.MaterialUploadResponse;
-import com.paper.dto.client.QARequest;
-import com.paper.dto.client.QAResponse;
+import com.paper.dto.client.python.MaterialUploadRequest;
+import com.paper.dto.client.python.MaterialUploadResponse;
 import com.paper.dto.client.python.AnswerRequestToPython;
 import com.paper.dto.client.python.AnswerResponseToPython;
 import com.paper.dto.client.python.ProblemRequestToPython;
@@ -79,7 +77,7 @@ public class PythonClient {
     /**
      * QA 질문 요청
      */
-    public Mono<QAResponse> askQuestion(QARequest request) {
+    public Mono<MaterialUploadRequest.QAResponse> askQuestion(MaterialUploadRequest.QARequest request) {
 
         log.info("Calling Python QA service : material = {}, quesion = {}", request.getMaterialId(), request.getQuestion());
 
@@ -87,7 +85,7 @@ public class PythonClient {
                 .uri("/qa/qa/ask")
                 .bodyValue(request)
                 .retrieve()
-                .bodyToMono(QAResponse.class)
+                .bodyToMono(MaterialUploadRequest.QAResponse.class)
                 .timeout(Duration.ofSeconds(90))
                 .doOnSuccess(response ->
                         log.info("QA response recieved in {}ms", response.getResponseTimeMs())

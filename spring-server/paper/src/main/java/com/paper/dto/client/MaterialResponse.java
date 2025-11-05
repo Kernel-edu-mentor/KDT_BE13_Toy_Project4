@@ -1,4 +1,4 @@
-package com.paper.dto;
+package com.paper.dto.client;
 
 import com.paper.domain.Material;
 import lombok.AllArgsConstructor;

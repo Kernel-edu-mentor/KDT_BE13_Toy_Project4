@@ -1,4 +1,4 @@
-package com.paper.dto.client;
+package com.paper.dto.client.python;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
@@ -19,9 +19,6 @@ public class QAResponse {
 
     @JsonProperty("response_time_ms")
     private Integer responseTimeMs;
-
- /*   @JsonProperty("file_type")
-    private String fineType;*/
 
     @Getter
     public static class Source {

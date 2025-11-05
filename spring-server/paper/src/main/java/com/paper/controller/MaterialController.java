@@ -2,9 +2,8 @@ package com.paper.controller;
 
 import com.paper.client.PythonClient;
 import com.paper.domain.Material;
-import com.paper.dto.MaterialResponse;
-import com.paper.dto.client.MaterialUploadRequest;
-import com.paper.service.FileStorageService;
+import com.paper.dto.client.ProblemAnswerRequest;
+import com.paper.dto.client.python.MaterialUploadRequest;
 import com.paper.service.MaterialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,9 +31,9 @@ public class MaterialController {
      * 학습 자료 목록 조회
      */
     @GetMapping
-    public ResponseEntity<List<MaterialResponse>> getMaterials() {
+    public ResponseEntity<List<ProblemAnswerRequest.MaterialResponse>> getMaterials() {
         log.info("Fetching all materials");
-        List<MaterialResponse> materials = materialService.findAll();
+        List<ProblemAnswerRequest.MaterialResponse> materials = materialService.findAll();
         return ResponseEntity.ok(materials);
     }
 
@@ -47,7 +46,7 @@ public class MaterialController {
      * 5. Python 작업 완료 후 COMPLETED로 업데이트
      */
     @PostMapping("/upload")
-    public Mono<ResponseEntity<MaterialResponse>> uploadMaterial (
+    public Mono<ResponseEntity<ProblemAnswerRequest.MaterialResponse>> uploadMaterial (
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title
             //@AuthenticationPrincipal UserDetails userDetails // TODO : 회원 로직 생성 후 연결
@@ -68,7 +67,7 @@ public class MaterialController {
             );
 
             // 3. MaterialResponse 생성 (업로드 직후 상태)
-            MaterialResponse materialResponse = MaterialResponse.from(material);
+            ProblemAnswerRequest.MaterialResponse materialResponse = ProblemAnswerRequest.MaterialResponse.from(material);
 
             // 4. 파싱은 비동기로 진행하고, 업로드 직후 Material 정보를 즉시 반환
             pythonClient.uploadMaterial(request)

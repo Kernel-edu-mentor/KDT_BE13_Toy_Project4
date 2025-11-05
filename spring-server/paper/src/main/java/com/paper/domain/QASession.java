@@ -1,6 +1,6 @@
 package com.paper.domain;
 
-import com.paper.dto.client.QAResponse;
+import com.paper.dto.client.python.MaterialUploadRequest;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.springframework.data.annotation.CreatedDate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,7 +40,7 @@ public class QASession {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSONB")
-    private List<QAResponse.Source> sources;
+    private List<MaterialUploadRequest.QAResponse.Source> sources;
 
     private Integer responseTimeMs;
 

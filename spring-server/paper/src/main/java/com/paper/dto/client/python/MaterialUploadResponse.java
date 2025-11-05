@@ -1,4 +1,4 @@
-package com.paper.dto.client;
+package com.paper.dto.client.python;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
