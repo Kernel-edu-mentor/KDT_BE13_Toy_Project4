@@ -1,6 +1,10 @@
 package com.paper.controller;
 
 import com.paper.client.PythonClient;
+import com.paper.dto.client.QAChatCreateRequest;
+import com.paper.dto.client.QAChatResponse;
+import com.paper.dto.client.QAChatUpdateRequest;
+import com.paper.dto.client.QASessionResponse;
 import com.paper.dto.client.python.MaterialUploadRequest;
 import com.paper.service.QAService;
 import jakarta.validation.Valid;
@@ -8,10 +12,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Optional;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -22,6 +34,52 @@ public class QAController {
 
     private final PythonClient pythonClient;
     private final QAService qaService;
+
+    @GetMapping("/sessions")
+    public ResponseEntity<List<QASessionResponse>> getSessions(
+            @RequestParam(value = "materialId", required = false) Long materialId,
+            @RequestParam(value = "chatId", required = false) Long chatId
+    ) {
+        List<QASessionResponse> sessions = qaService.getSessions(materialId, chatId);
+        return ResponseEntity.ok(sessions);
+    }
+
+    @GetMapping("/chats")
+    public ResponseEntity<List<QAChatResponse>> getChats(
+            @RequestParam(value = "materialId", required = false) Long materialId
+    ) {
+        List<QAChatResponse> chats = qaService.getChats(Optional.ofNullable(materialId));
+        return ResponseEntity.ok(chats);
+    }
+
+    @PostMapping("/chats")
+    public ResponseEntity<QAChatResponse> createChat(
+            @Valid @RequestBody QAChatCreateRequest request
+    ) {
+        QAChatResponse chat = qaService.createChat(request.getTitle(), request.getMaterialId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(chat);
+    }
+
+    @PatchMapping("/chats/{chatId}")
+    public ResponseEntity<QAChatResponse> updateChat(
+            @PathVariable Long chatId,
+            @Valid @RequestBody QAChatUpdateRequest request
+    ) {
+        QAChatResponse chat = qaService.updateChatTitle(chatId, request.getTitle());
+        return ResponseEntity.ok(chat);
+    }
+
+    @GetMapping("/chats/{chatId}/sessions")
+    public ResponseEntity<List<QASessionResponse>> getChatSessions(@PathVariable Long chatId) {
+        List<QASessionResponse> sessions = qaService.getSessions(null, chatId);
+        return ResponseEntity.ok(sessions);
+    }
+
+    @DeleteMapping("/chats/{chatId}")
+    public ResponseEntity<Void> deleteChat(@PathVariable Long chatId) {
+        qaService.deleteChat(chatId);
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/ask")
     public Mono<ResponseEntity<MaterialUploadRequest.QAResponse>> askQuestion (

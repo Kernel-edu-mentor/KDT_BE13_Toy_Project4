@@ -51,15 +51,15 @@ const Index = () => {
               <Button
                 onClick={() => navigate("/dashboard")}
                 size="lg"
-                className="h-14 px-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-lg"
+                className="h-14 px-8 rounded-full border border-gray-300 bg-white text-lg font-medium text-gray-800 transition hover:border-blue-600 hover:bg-blue-600 hover:text-white"
               >
-                대시보드로 가기
+                질문하기
               </Button>
               <Button
                 onClick={() => navigate("/quiz")}
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 rounded-full text-lg"
+                className="h-14 px-8 rounded-full border border-gray-300 text-lg font-medium text-gray-800 transition hover:border-blue-600 hover:bg-blue-600 hover:text-white"
               >
                 퀴즈 풀기
               </Button>
@@ -87,9 +87,14 @@ const Index = () => {
       </div>
 
       <p className="text-lg text-muted-foreground">
-        {isLoggedIn
-          ? `${user?.username || "사용자"}님, AI 멘토와 함께 학습 여정을 계속하세요.`
-          : "지금 바로 AI 멘토와 함께 학습 여정을 시작해 보세요."}
+        {isLoggedIn ? (
+          <>
+            <span className="text-blue-600 font-semibold">{user?.username || "사용자"}</span>
+            님, AI 멘토와 함께 학습 여정을 계속하세요.
+          </>
+        ) : (
+          "지금 바로 AI 멘토와 함께 학습 여정을 시작해 보세요."
+        )}
       </p>
     </section>
   );
