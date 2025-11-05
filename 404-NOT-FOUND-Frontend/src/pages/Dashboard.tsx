@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Copy, FileText, MessageSquare, MoreVertical, Paperclip, Plus, ThumbsDown, ThumbsUp, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, FileText, MessageSquare, Paperclip, Pencil, Plus, ThumbsDown, ThumbsUp, Sparkles } from "lucide-react";
 import { ApiError, getJson, postForm, postJson } from "@/lib/api";
 
 interface Message {
@@ -44,23 +44,51 @@ interface QAResponse {
   response_time_ms: number;
 }
 
-const initialChats = [
-  { id: "intro", label: "새 채팅 1" },
-  { id: "study", label: "React 학습하기" },
-  { id: "algorithm", label: "알고리즘 질문" },
-];
+interface QASessionSummary {
+  id: number;
+  materialId: number | null;
+  materialTitle: string | null;
+  question: string;
+  answer: string;
+  responseTimeMs?: number | null;
+  sources?: QAResponse["sources"];
+  createdAt?: string;
+}
 
-// 채팅 목록 불러오기 함수 (컴포넌트 외부)
-const loadChatList = (): Array<{ id: string; label: string }> => {
-  try {
-    const chatsStr = sessionStorage.getItem("qa-chat-list");
-    if (chatsStr) {
-      return JSON.parse(chatsStr) as Array<{ id: string; label: string }>;
+interface QAChat {
+  id: number;
+  title: string;
+  materialId: number | null;
+  materialTitle: string | null;
+  createdAt?: string;
+}
+
+const buildChatLabel = (chat: QAChat) => {
+  const rawTitle = chat.title?.trim();
+  if (rawTitle) return rawTitle;
+  if (chat.materialTitle) return chat.materialTitle;
+  return `채팅 ${chat.id}`;
+};
+
+const convertSessionsToMessages = (sessions: QASessionSummary[]): Message[] => {
+  return sessions.flatMap((session) => {
+    const history: Message[] = [];
+    if (session.question) {
+      history.push({
+        id: `session-${session.id}-question`,
+        role: "user",
+        content: session.question,
+      });
     }
-  } catch (error) {
-    console.error("채팅 목록 불러오기 실패:", error);
-  }
-  return initialChats;
+    if (session.answer) {
+      history.push({
+        id: `session-${session.id}-answer`,
+        role: "assistant",
+        content: session.answer,
+      });
+    }
+    return history;
+  });
 };
 
 const Dashboard = () => {
@@ -68,15 +96,14 @@ const Dashboard = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [chats, setChats] = useState<Array<{ id: string; label: string }>>(() => loadChatList());
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(() => {
-    const savedChats = loadChatList();
-    const savedSelectedId = sessionStorage.getItem("qa-selected-chat-id");
-    return savedSelectedId || savedChats[0]?.id || null;
-  });
+  const [chats, setChats] = useState<QAChat[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"qa" | "quiz">("qa");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [messageFeedback, setMessageFeedback] = useState<Record<string, "like" | "dislike" | null>>({});
+  const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
+  const [chatsLoading, setChatsLoading] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [materialId, setMaterialId] = useState<string | null>(() => sessionStorage.getItem("ai-mentor-material-id"));
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [qaError, setQaError] = useState<string | null>(null);
@@ -94,39 +121,6 @@ const Dashboard = () => {
 
   const hasMessages = messages.length > 0;
 
-  // QA 히스토리 저장 함수
-  const saveQAHistory = (chatId: string, messages: Message[]) => {
-    try {
-      const historyKey = `qa-history-${chatId}`;
-      sessionStorage.setItem(historyKey, JSON.stringify(messages));
-    } catch (error) {
-      console.error("QA 히스토리 저장 실패:", error);
-    }
-  };
-
-  // QA 히스토리 불러오기 함수
-  const loadQAHistory = (chatId: string): Message[] => {
-    try {
-      const historyKey = `qa-history-${chatId}`;
-      const historyStr = sessionStorage.getItem(historyKey);
-      if (historyStr) {
-        return JSON.parse(historyStr) as Message[];
-      }
-    } catch (error) {
-      console.error("QA 히스토리 불러오기 실패:", error);
-    }
-    return [];
-  };
-
-  // 채팅 목록 저장 함수
-  const saveChatList = (chats: Array<{ id: string; label: string }>) => {
-    try {
-      sessionStorage.setItem("qa-chat-list", JSON.stringify(chats));
-    } catch (error) {
-      console.error("채팅 목록 저장 실패:", error);
-    }
-  };
-
   // Material 목록 조회
   const fetchMaterials = async () => {
     try {
@@ -139,6 +133,39 @@ const Dashboard = () => {
       setMaterialsLoading(false);
     }
   };
+
+  const fetchChats = useCallback(async () => {
+    try {
+      setChatsLoading(true);
+      const query = materialId ? `?materialId=${materialId}` : "";
+      const chatList = await getJson<QAChat[]>(`/qa/chats${query}`);
+      setChats(chatList);
+      return chatList;
+    } catch (error) {
+      console.error("QA 채팅 목록 조회 실패:", error);
+      return [];
+    } finally {
+      setChatsLoading(false);
+    }
+  }, [materialId]);
+
+  const loadChatSessions = useCallback(async (chatId: string) => {
+    try {
+      setSessionsLoading(true);
+      const sessionList = await getJson<QASessionSummary[]>(`/qa/chats/${chatId}/sessions`);
+      const history = convertSessionsToMessages(sessionList);
+      setChatHistories((prev) => ({
+        ...prev,
+        [chatId]: history,
+      }));
+      setMessages(history);
+    } catch (error) {
+      console.error("채팅 히스토리 조회 실패:", error);
+      setQaError("채팅 기록을 불러오지 못했습니다.");
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchMaterials();
@@ -174,6 +201,8 @@ const Dashboard = () => {
     setShowMaterialSelector(false);
     setUploadMessage(`"${selectedMaterial.title}" 자료가 선택되었습니다.`);
     setMessages([]);
+    setSelectedChatId(null);
+    setChatHistories({});
   };
 
   // 선택한 materialId의 자료가 분석 완료되면 자동으로 선택
@@ -186,7 +215,7 @@ const Dashboard = () => {
         setUploadMessage(`"${material.title}" 자료 분석이 완료되었습니다. 이제 질문할 수 있습니다!`);
       }
     }
-  }, [materials, materialId]);
+  }, [materials, materialId, uploadMessage]);
 
   const handleFileButtonClick = () => {
     fileInputRef.current?.click();
@@ -249,19 +278,26 @@ const Dashboard = () => {
       return;
     }
 
+    if (!selectedChatId) {
+      setQaError("채팅을 먼저 생성하거나 선택해주세요.");
+      return;
+    }
+
     const question = inputValue.trim();
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: question,
     };
+    const chatId = selectedChatId;
 
     setMessages((prev) => {
-      const updatedMessages = [...prev, userMessage];
-      if (selectedChatId) {
-        saveQAHistory(selectedChatId, updatedMessages);
-      }
-      return updatedMessages;
+      const updated = [...prev, userMessage];
+      setChatHistories((histories) => ({
+        ...histories,
+        [chatId]: updated,
+      }));
+      return updated;
     });
     setInputValue("");
     setIsSending(true);
@@ -271,6 +307,7 @@ const Dashboard = () => {
       const response = await postJson<QAResponse>("/qa/ask", {
         material_id: Number(materialId),
         question,
+        chat_id: Number(chatId),
       });
 
       const answerMessage: Message = {
@@ -279,12 +316,15 @@ const Dashboard = () => {
         content: response.answer,
       };
       setMessages((prev) => {
-        const updatedMessages = [...prev, answerMessage];
-        if (selectedChatId) {
-          saveQAHistory(selectedChatId, updatedMessages);
-        }
-        return updatedMessages;
+        const updated = [...prev, answerMessage];
+        setChatHistories((histories) => ({
+          ...histories,
+          [chatId]: updated,
+        }));
+        return updated;
       });
+
+      void fetchChats();
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "답변 생성 중 문제가 발생했습니다.";
       setQaError(message);
@@ -294,11 +334,12 @@ const Dashboard = () => {
           role: "assistant",
           content: `오류: ${message}`,
         };
-        const updatedMessages = [...prev, errorMessage];
-        if (selectedChatId) {
-          saveQAHistory(selectedChatId, updatedMessages);
-        }
-        return updatedMessages;
+        const updated = [...prev, errorMessage];
+        setChatHistories((histories) => ({
+          ...histories,
+          [chatId]: updated,
+        }));
+        return updated;
       });
     } finally {
       setIsSending(false);
@@ -357,26 +398,43 @@ const Dashboard = () => {
     }
   };
 
-  const handleStartNewChat = () => {
-    const newChat = {
-      id: `chat-${Date.now()}`,
-      label: `새 채팅 ${chats.length + 1}`,
-    };
-    const updatedChats = [newChat, ...chats];
-    setChats(updatedChats);
-    saveChatList(updatedChats);
-    setSelectedChatId(newChat.id);
-    sessionStorage.setItem("qa-selected-chat-id", newChat.id);
-    setMessages([]);
-    setInputValue("");
+  const handleStartNewChat = async () => {
+    if (!materialId) {
+      setUploadMessage("먼저 학습 자료를 선택해주세요.");
+      return;
+    }
+
+    const defaultTitle = `새 채팅 ${chats.length + 1}`;
+
+    try {
+      const chat = await postJson<QAChat>("/qa/chats", {
+        title: defaultTitle,
+        materialId: Number(materialId),
+      });
+      const chatId = String(chat.id);
+      await fetchChats();
+      setSelectedChatId(chatId);
+      setMessages([]);
+      setInputValue("");
+      setChatHistories((prev) => ({
+        ...prev,
+        [chatId]: [],
+      }));
+    } catch (error) {
+      console.error("새 채팅 생성 실패:", error);
+      setQaError("새 채팅을 생성하지 못했습니다.");
+    }
   };
 
   const handleSelectChat = (chatId: string) => {
     if (editingChatId !== chatId) {
       setSelectedChatId(chatId);
-      sessionStorage.setItem("qa-selected-chat-id", chatId);
-      const history = loadQAHistory(chatId);
-      setMessages(history);
+      const cachedMessages = chatHistories[chatId];
+      if (cachedMessages) {
+        setMessages(cachedMessages);
+      } else {
+        setMessages([]);
+      }
       setInputValue("");
     }
   };
@@ -390,23 +448,91 @@ const Dashboard = () => {
     }, 0);
   };
 
+  const handleDeleteChat = async (chatId: string, label: string) => {
+    const confirmDelete = window.confirm(`'${label}' 채팅을 삭제하시겠습니까?`);
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/qa/chats/${chatId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "채팅 삭제에 실패했습니다.");
+      }
+
+      setChats((prevChats) => {
+        const updatedChats = prevChats.filter((chat) => String(chat.id) !== chatId);
+
+        setSelectedChatId((prevSelected) => {
+          if (prevSelected !== chatId) {
+            return prevSelected;
+          }
+
+          if (updatedChats.length === 0) {
+            setMessages([]);
+            return null;
+          }
+
+          const nextId = String(updatedChats[0].id);
+          const cached = chatHistories[nextId];
+          if (cached) {
+            setMessages(cached);
+          } else {
+            setMessages([]);
+            void loadChatSessions(nextId);
+          }
+          return nextId;
+        });
+
+        return updatedChats;
+      });
+
+      setChatHistories((prev) => {
+        const { [chatId]: _, ...rest } = prev;
+        return rest;
+      });
+
+      await fetchChats();
+    } catch (error) {
+      console.error("채팅 삭제 실패:", error);
+      setQaError(error instanceof Error ? error.message : "채팅을 삭제하지 못했습니다.");
+    }
+  };
+
   const handleSaveChatName = (chatId: string) => {
     if (!editingChatName.trim()) {
-      const chat = chats.find((c) => c.id === chatId);
+      const chat = chats.find((c) => String(c.id) === chatId);
       if (chat) {
-        setEditingChatName(chat.label);
+        setEditingChatName(buildChatLabel(chat));
       }
       setEditingChatId(null);
       return;
     }
 
-    const updatedChats = chats.map((chat) =>
-      chat.id === chatId ? { ...chat, label: editingChatName.trim() } : chat
-    );
-    setChats(updatedChats);
-    saveChatList(updatedChats);
-    setEditingChatId(null);
-    setEditingChatName("");
+    const updatedTitle = editingChatName.trim();
+
+    const updateChatTitle = async () => {
+      try {
+        await postJson<QAChat>(`/qa/chats/${chatId}`, { title: updatedTitle }, { method: "PATCH" });
+        await fetchChats();
+      } catch (error) {
+        console.error("채팅 제목 변경 실패:", error);
+        setQaError("채팅 이름을 변경하지 못했습니다.");
+      } finally {
+        setEditingChatId(null);
+        setEditingChatName("");
+      }
+    };
+
+    updateChatTitle();
   };
 
   const handleCancelEditChat = () => {
@@ -414,38 +540,45 @@ const Dashboard = () => {
     setEditingChatName("");
   };
 
-  // 컴포넌트 마운트 시 저장된 채팅 목록과 선택된 채팅 불러오기
   useEffect(() => {
-    const savedChats = loadChatList();
-    if (savedChats.length > 0) {
-      setChats(savedChats);
-    }
-    
-    const savedSelectedId = sessionStorage.getItem("qa-selected-chat-id");
-    if (savedSelectedId) {
-      setSelectedChatId(savedSelectedId);
-      const history = loadQAHistory(savedSelectedId);
-      if (history.length > 0) {
-        setMessages(history);
-      }
-    } else if (savedChats.length > 0) {
-      const firstChatId = savedChats[0].id;
-      setSelectedChatId(firstChatId);
-      sessionStorage.setItem("qa-selected-chat-id", firstChatId);
-      const history = loadQAHistory(firstChatId);
-      if (history.length > 0) {
-        setMessages(history);
-      }
-    }
-  }, []);
+    let isMounted = true;
 
-  // selectedChatId 변경 시 히스토리 불러오기
+    const loadChats = async () => {
+      const chatList = await fetchChats();
+      if (!isMounted) return;
+
+      if (chatList.length === 0) {
+        setSelectedChatId(null);
+        setMessages([]);
+        return;
+      }
+
+      setSelectedChatId((prev) => {
+        if (prev && chatList.some((chat) => String(chat.id) === prev)) {
+          return prev;
+        }
+        return String(chatList[0].id);
+      });
+    };
+
+    loadChats();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchChats]);
+
   useEffect(() => {
-    if (selectedChatId) {
-      const history = loadQAHistory(selectedChatId);
-      setMessages(history);
+    if (!selectedChatId) return;
+
+    const cached = chatHistories[selectedChatId];
+    if (cached) {
+      setMessages(cached);
+      return;
     }
-  }, [selectedChatId]);
+
+    loadChatSessions(selectedChatId);
+  }, [selectedChatId, chatHistories, loadChatSessions]);
 
   return (
     <div className="flex min-h-[100dvh] bg-white overflow-hidden">
@@ -462,7 +595,7 @@ const Dashboard = () => {
               <button
                 type="button"
                 onClick={handleStartNewChat}
-                className="mb-4 flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+                className="mb-4 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
               >
                 <Plus size={16} />
                 새 채팅
@@ -470,116 +603,135 @@ const Dashboard = () => {
 
               <ScrollArea className="flex-1 overflow-y-auto">
                 <div className="space-y-1">
-                  {chats.map((chat) => {
-                    const isActive = chat.id === selectedChatId;
-                    const isEditing = editingChatId === chat.id;
-                    return (
-                      <div
-                        key={chat.id}
-                        className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                          isActive && !isEditing
-                            ? "bg-black text-white"
-                            : "bg-transparent text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        <MessageSquare
-                          size={16}
-                          className={`transition-colors flex-shrink-0 ${
-                            isActive && !isEditing ? "text-white" : "text-gray-500 group-hover:text-gray-700"
-                          }`}
-                        />
-                        {isEditing ? (
-                          <Input
-                            ref={chatNameInputRef}
-                            value={editingChatName}
-                            onChange={(e) => setEditingChatName(e.target.value)}
-                            onBlur={() => handleSaveChatName(chat.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleSaveChatName(chat.id);
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                handleCancelEditChat();
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-7 px-2 text-sm bg-white border-gray-300 focus-visible:ring-2 focus-visible:ring-blue-500 flex-1"
+                  {chatsLoading ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">채팅 목록을 불러오는 중...</div>
+                  ) : chats.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">아직 생성된 채팅이 없습니다.</div>
+                  ) : (
+                    chats.map((chat) => {
+                      const chatId = String(chat.id);
+                      const isActive = chatId === selectedChatId;
+                      const isEditing = editingChatId === chatId;
+                      const label = buildChatLabel(chat);
+                      const containerClasses = `bg-transparent hover:bg-gray-100 ${
+                        isActive && !isEditing ? "text-blue-600" : "text-gray-700"
+                      }`;
+                      const iconClasses = isActive && !isEditing
+                        ? "text-blue-600"
+                        : "text-gray-500 group-hover:text-gray-700";
+                      return (
+                        <div
+                          key={chat.id}
+                          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${containerClasses}`}
+                        >
+                          <MessageSquare
+                            size={16}
+                            className={`transition-colors flex-shrink-0 ${iconClasses}`}
                           />
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleSelectChat(chat.id)}
-                              className="flex-1 text-left truncate"
-                            >
-                              <span className="truncate">{chat.label}</span>
-                            </button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className={`flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200 ${
-                                    isActive ? "text-white hover:bg-gray-800" : "text-gray-500"
-                                  }`}
-                                >
-                                  <MoreVertical size={16} />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-32">
-                                <DropdownMenuItem onClick={() => handleStartEditChat(chat.id, chat.label)}>
-                                  이름 변경
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
+                          {isEditing ? (
+                            <Input
+                              ref={chatNameInputRef}
+                              value={editingChatName}
+                              onChange={(e) => setEditingChatName(e.target.value)}
+                              onBlur={() => handleSaveChatName(chatId)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleSaveChatName(chatId);
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  handleCancelEditChat();
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-7 px-2 text-sm bg-white border-gray-300 focus-visible:ring-2 focus-visible:ring-blue-500 flex-1"
+                            />
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectChat(chatId)}
+                                className="flex-1 text-left truncate"
+                              >
+                                <span className="truncate">{label}</span>
+                              </button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`flex-shrink-0 opacity-0 group-hover:opacity-100 transition-colors p-1 ${
+                                      isActive ? "text-blue-600 hover:text-blue-700" : "text-gray-500 group-hover:text-gray-700"
+                                    }`}
+                                    aria-label="채팅 설정"
+                                  >
+                                    <Pencil size={16} />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-32">
+                                  <DropdownMenuItem
+                                    className="text-black hover:bg-gray-100 focus:bg-gray-100 data-[highlighted]:text-black"
+                                    onClick={() => handleStartEditChat(chatId, label)}
+                                  >
+                                    이름 변경
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600 hover:bg-gray-100 focus:bg-gray-100"
+                                    onClick={() => handleDeleteChat(chatId, label)}
+                                  >
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </ScrollArea>
             </>
           )}
         </aside>
 
-        <div className="flex min-h-[100dvh] flex-col items-start justify-start bg-white px-2 py-8">
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed((prev) => !prev)}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:bg-gray-100"
-            aria-label={sidebarCollapsed ? "사이드바 열기" : "사이드바 접기"}
-          >
-            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          </button>
-        </div>
+        
       </div>
 
       <div className="relative flex min-h-[100dvh] flex-1 flex-col">
         <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
 
-        <header className="flex justify-between items-center gap-3 px-6 py-6">
-          <div className="relative">
+        <header className="flex items-center justify-between gap-6 px-6 pb-6 pt-8">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setShowMaterialSelector(!showMaterialSelector)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              onClick={() => setSidebarCollapsed((prev) => !prev)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:bg-gray-100"
+              aria-label={sidebarCollapsed ? "사이드바 열기" : "사이드바 접기"}
             >
-              <FileText size={16} />
-              <span>
-                {materialId
-                  ? materials.find((m) => String(m.id) === materialId)?.title || `자료 #${materialId}`
-                  : "자료 선택"}
-              </span>
+              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
-            {showMaterialSelector && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
-                {materialsLoading ? (
-                  <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
-                ) : materials.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-gray-500">업로드된 자료가 없습니다.</div>
-                ) : (
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowMaterialSelector(!showMaterialSelector)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                <FileText size={16} />
+                <span>
+                  {materialId
+                    ? materials.find((m) => String(m.id) === materialId)?.title || `자료 #${materialId}`
+                    : "자료 선택"}
+                </span>
+              </button>
+              {showMaterialSelector && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
+                  {materialsLoading ? (
+                    <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
+                  ) : materials.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">업로드된 자료가 없습니다.</div>
+                  ) : (
                   <div className="py-2">
                     {materials.map((material) => {
                       const isSelected = String(material.id) === materialId;
@@ -623,8 +775,9 @@ const Dashboard = () => {
                     })}
                   </div>
                 )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex gap-3">
             <button
@@ -633,7 +786,7 @@ const Dashboard = () => {
                 setActiveTab("qa");
                 navigate("/dashboard");
               }}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition ${
+              className={`px-5 py-2 rounded-xl text-sm font-medium transition ${
                 activeTab === "qa"
                   ? "bg-black text-white hover:opacity-90"
                   : "border border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -647,7 +800,7 @@ const Dashboard = () => {
                 setActiveTab("quiz");
                 navigate("/quiz");
               }}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition ${
+              className={`px-5 py-2 rounded-xl text-sm font-medium transition ${
                 activeTab === "quiz"
                   ? "bg-black text-white hover:opacity-90"
                   : "border border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -679,8 +832,8 @@ const Dashboard = () => {
                           {message.content}
                         </div>
                         {message.role === "assistant" && (
-                          <div className="mt-3 space-y-2">
-                            <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-xs text-gray-500">
+                          <div className="mt-1 space-y-2">
+                            <div className="flex items-center justify-between pt-2 text-xs text-gray-500">
                               <div className="flex gap-4">
                                 <button
                                   type="button"
@@ -691,38 +844,40 @@ const Dashboard = () => {
                                   <span>복사</span>
                                 </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleLike(message.id)}
-                                  className={`flex items-center gap-1 transition hover:text-green-600 ${
-                                    feedback === "like" ? "text-green-600" : ""
-                                  }`}
-                                >
-                                  <ThumbsUp size={14} />
-                                  <span>좋아요</span>
-                                </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLike(message.id)}
+                              className={`flex items-center gap-1 transition hover:text-blue-600 ${
+                                feedback === "like" ? "text-blue-600" : "text-gray-500"
+                              }`}
+                            >
+                              <ThumbsUp size={14} />
+                              <span>좋아요</span>
+                            </button>
 
+                            <button
+                              type="button"
+                              onClick={() => handleDislike(message.id)}
+                              className={`flex items-center gap-1 transition hover:text-black ${
+                                feedback === "dislike" ? "text-black" : "text-gray-500"
+                              }`}
+                            >
+                              <ThumbsDown size={14} />
+                              <span>싫어요</span>
+                            </button>
+                              </div>
+                              <div>
                                 <button
                                   type="button"
-                                  onClick={() => handleDislike(message.id)}
-                                  className={`flex items-center gap-1 transition hover:text-red-600 ${
-                                    feedback === "dislike" ? "text-red-600" : ""
-                                  }`}
+                                  onClick={() => handleOpenDifficultyDialog(message.id)}
+                                  disabled={generatingFromQA === message.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <ThumbsDown size={14} />
-                                  <span>싫어요</span>
+                                  <Sparkles size={14} />
+                                  {generatingFromQA === message.id ? "문제 생성 중..." : "문제 생성"}
                                 </button>
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDifficultyDialog(message.id)}
-                              disabled={generatingFromQA === message.id}
-                              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Sparkles size={14} />
-                              {generatingFromQA === message.id ? "문제 생성 중..." : "문제 생성"}
-                            </button>
                           </div>
                         )}
                       </div>
@@ -760,6 +915,7 @@ const Dashboard = () => {
                 </div>
                 {uploadMessage && <p className="text-sm text-blue-600">{uploadMessage}</p>}
                 {qaError && <p className="text-xs text-red-500">{qaError}</p>}
+                {sessionsLoading && <p className="text-xs text-gray-500">채팅 기록을 불러오는 중...</p>}
                 <p className="text-sm text-gray-500 mt-2">
                   AI와 함께하는 스마트한 학습. 질문하고, 배우고, 퀴즈로 테스트하세요.
                 </p>

@@ -46,6 +46,9 @@ public class MaterialUploadRequest {
         @JsonProperty("question")
         @NotBlank(message = "question은 필수입니다.")
         private String question;
+
+        @JsonProperty("chat_id")
+        private Long chatId;
     }
 
     @Getter

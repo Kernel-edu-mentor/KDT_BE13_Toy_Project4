@@ -32,6 +32,10 @@ public class QASession {
     @JoinColumn(name = "material_id")
     private Material material;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chat_id")
+    private QAChat chat;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String question;
 
