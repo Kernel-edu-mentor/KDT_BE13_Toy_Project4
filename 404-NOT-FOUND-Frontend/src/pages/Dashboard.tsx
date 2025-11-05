@@ -8,7 +8,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronLeft, ChevronRight, Copy, FileText, MessageSquare, MoreVertical, Paperclip, Plus, ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, Copy, FileText, MessageSquare, MoreVertical, Paperclip, Plus, ThumbsDown, ThumbsUp, Sparkles } from "lucide-react";
 import { ApiError, getJson, postForm, postJson } from "@/lib/api";
 
 interface Message {
@@ -76,6 +85,10 @@ const Dashboard = () => {
   const [showMaterialSelector, setShowMaterialSelector] = useState(false);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingChatName, setEditingChatName] = useState<string>("");
+  const [generatingFromQA, setGeneratingFromQA] = useState<string | null>(null); // QA 기반 문제 생성 중인 메시지 ID
+  const [showDifficultyDialog, setShowDifficultyDialog] = useState(false); // 난이도 선택 Dialog 표시 여부
+  const [selectedDifficultyForQA, setSelectedDifficultyForQA] = useState<"BEGINNER" | "INTERMEDIATE" | "ADVANCED">("BEGINNER"); // 선택한 난이도
+  const [selectedAnswerMessageId, setSelectedAnswerMessageId] = useState<string | null>(null); // 선택한 답변 메시지 ID
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatNameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -289,6 +302,58 @@ const Dashboard = () => {
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleOpenDifficultyDialog = (answerMessageId: string) => {
+    setSelectedAnswerMessageId(answerMessageId);
+    setShowDifficultyDialog(true);
+  };
+
+  const handleGenerateProblemsFromQA = async () => {
+    if (!selectedAnswerMessageId || !materialId) {
+      setQaError("자료를 선택해주세요.");
+      return;
+    }
+
+    // 질문과 답변 찾기
+    const answerMessage = messages.find((m) => m.id === selectedAnswerMessageId);
+    if (!answerMessage || answerMessage.role !== "assistant") {
+      setQaError("답변 메시지를 찾을 수 없습니다.");
+      return;
+    }
+
+    // 이전 사용자 메시지가 질문
+    const answerIndex = messages.findIndex((m) => m.id === selectedAnswerMessageId);
+    const questionMessage = answerIndex > 0 ? messages[answerIndex - 1] : null;
+    if (!questionMessage || questionMessage.role !== "user") {
+      setQaError("질문을 찾을 수 없습니다.");
+      return;
+    }
+
+    try {
+      setGeneratingFromQA(selectedAnswerMessageId);
+      setShowDifficultyDialog(false);
+      setQaError(null);
+
+      const response = await postJson("/problems/generated", {
+        materialId: Number(materialId),
+        difficulty: selectedDifficultyForQA,
+        problemCount: 5,
+        question: questionMessage.content,
+        answer: answerMessage.content,
+        topic: questionMessage.content, // 질문 내용을 주제로 사용
+      });
+
+      // 문제 생성 성공 시 퀴즈 페이지로 이동
+      navigate("/quiz");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "문제 생성 중 오류가 발생했습니다.";
+      setQaError(message);
+      console.error("QA 기반 문제 생성 에러:", error);
+    } finally {
+      setGeneratingFromQA(null);
+      setSelectedAnswerMessageId(null);
     }
   };
 
@@ -614,39 +679,50 @@ const Dashboard = () => {
                           {message.content}
                         </div>
                         {message.role === "assistant" && (
-                          <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2 text-xs text-gray-500">
-                            <div className="flex gap-4">
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(message.content)}
-                                className="flex items-center gap-1 transition hover:text-gray-700"
-                              >
-                                <Copy size={14} />
-                                <span>복사</span>
-                              </button>
+                          <div className="mt-3 space-y-2">
+                            <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-xs text-gray-500">
+                              <div className="flex gap-4">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopy(message.content)}
+                                  className="flex items-center gap-1 transition hover:text-gray-700"
+                                >
+                                  <Copy size={14} />
+                                  <span>복사</span>
+                                </button>
 
-                              <button
-                                type="button"
-                                onClick={() => handleLike(message.id)}
-                                className={`flex items-center gap-1 transition hover:text-green-600 ${
-                                  feedback === "like" ? "text-green-600" : ""
-                                }`}
-                              >
-                                <ThumbsUp size={14} />
-                                <span>좋아요</span>
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleLike(message.id)}
+                                  className={`flex items-center gap-1 transition hover:text-green-600 ${
+                                    feedback === "like" ? "text-green-600" : ""
+                                  }`}
+                                >
+                                  <ThumbsUp size={14} />
+                                  <span>좋아요</span>
+                                </button>
 
-                              <button
-                                type="button"
-                                onClick={() => handleDislike(message.id)}
-                                className={`flex items-center gap-1 transition hover:text-red-600 ${
-                                  feedback === "dislike" ? "text-red-600" : ""
-                                }`}
-                              >
-                                <ThumbsDown size={14} />
-                                <span>싫어요</span>
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDislike(message.id)}
+                                  className={`flex items-center gap-1 transition hover:text-red-600 ${
+                                    feedback === "dislike" ? "text-red-600" : ""
+                                  }`}
+                                >
+                                  <ThumbsDown size={14} />
+                                  <span>싫어요</span>
+                                </button>
+                              </div>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDifficultyDialog(message.id)}
+                              disabled={generatingFromQA === message.id}
+                              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Sparkles size={14} />
+                              {generatingFromQA === message.id ? "문제 생성 중..." : "문제 생성"}
+                            </button>
                           </div>
                         )}
                       </div>
@@ -722,6 +798,78 @@ const Dashboard = () => {
           )}
         </main>
       </div>
+
+      {/* 난이도 선택 Dialog */}
+      <Dialog open={showDifficultyDialog} onOpenChange={setShowDifficultyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>문제 난이도 선택</DialogTitle>
+            <DialogDescription>
+              생성할 문제의 난이도를 선택해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <button
+              type="button"
+              onClick={() => setSelectedDifficultyForQA("BEGINNER")}
+              className={`w-full px-4 py-3 rounded-lg border-2 transition ${
+                selectedDifficultyForQA === "BEGINNER"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="text-left">
+                <div className="font-semibold">초급</div>
+                <div className="text-sm text-gray-600">기본 개념 이해 문제</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDifficultyForQA("INTERMEDIATE")}
+              className={`w-full px-4 py-3 rounded-lg border-2 transition ${
+                selectedDifficultyForQA === "INTERMEDIATE"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="text-left">
+                <div className="font-semibold">중급</div>
+                <div className="text-sm text-gray-600">기본 응용 문제</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDifficultyForQA("ADVANCED")}
+              className={`w-full px-4 py-3 rounded-lg border-2 transition ${
+                selectedDifficultyForQA === "ADVANCED"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="text-left">
+                <div className="font-semibold">고급</div>
+                <div className="text-sm text-gray-600">실무 응용 문제</div>
+              </div>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDifficultyDialog(false)}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              onClick={handleGenerateProblemsFromQA}
+              disabled={generatingFromQA !== null}
+            >
+              문제 생성하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
