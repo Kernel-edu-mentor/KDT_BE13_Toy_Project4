@@ -1,7 +1,15 @@
 import sys
+import os
 from pathlib import Path
 # 프로젝트 루트를 Python 경로에 추가
 sys.path.insert(0, str(Path(__file__).parent))
+
+from config import settings
+
+# LangSmith 환경 변수 설정
+os.environ["LANGCHAIN_TRACING_V2"] = settings.LANGCHAIN_TRACING_V2
+os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
+os.environ["LANGCHAIN_PROJECT"] = settings.LANGCHAIN_PROJECT
 
 from fastapi import FastAPI
 from paper_qa.api import router as qa_router

@@ -21,5 +21,10 @@ class Settings(BaseSettings):
     # Cache
     CACHE_SIZE: int = 100
 
+    # LangSmith
+    LANGCHAIN_TRACING_V2: str = "false"
+    LANGCHAIN_API_KEY: str = ""
+    LANGCHAIN_PROJECT: str = "edumentor"
+
 
 settings = Settings()
