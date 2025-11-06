@@ -973,37 +973,39 @@ const Dashboard = () => {
             </div>
           )}
 
-          <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur px-4 py-4">
-            <div className="relative max-w-3xl mx-auto">
-              <button
-                type="button"
-                onClick={handleFileButtonClick}
-                className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent text-gray-500 transition hover:text-gray-700"
-                aria-label="파일 업로드"
-              >
-                <Paperclip size={16} />
-              </button>
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="무엇이든 물어보세요"
-                className="h-12 rounded-full border border-gray-300 pl-14 pr-6 text-base text-gray-700 shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                disabled={isSending}
-              />
+          {hasMessages && (
+            <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur px-4 py-4">
+              <div className="relative max-w-3xl mx-auto">
+                <button
+                  type="button"
+                  onClick={handleFileButtonClick}
+                  className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-transparent text-gray-500 transition hover:text-gray-700"
+                  aria-label="파일 업로드"
+                >
+                  <Paperclip size={16} />
+                </button>
+                <Input
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="무엇이든 물어보세요"
+                  className="h-12 rounded-full border border-gray-300 pl-14 pr-6 text-base text-gray-700 shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  disabled={isSending}
+                />
+              </div>
+              {uploadMessage && (
+                <p className="mt-2 text-xs text-gray-500 text-center">
+                  {uploadMessage}
+                </p>
+              )}
+              {qaError && <p className="text-xs text-red-500 text-center">{qaError}</p>}
             </div>
-            {uploadMessage && (
-              <p className="mt-2 text-xs text-gray-500 text-center">
-                {uploadMessage}
-              </p>
-            )}
-            {qaError && <p className="text-xs text-red-500 text-center">{qaError}</p>}
-          </div>
+          )}
         </main>
       </div>
 
