@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        //target: "http://localhost:8080",
+          target: "http://spring-backend:8080",
         changeOrigin: true,
       },
     },

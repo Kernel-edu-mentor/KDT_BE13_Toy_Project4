@@ -1,0 +1,133 @@
+name: edumentor
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: edumentor-postgres
+    environment:
+      POSTGRES_DB: edumentor
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d edumentor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - edumentor-network
+
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: edumentor-chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    networks:
+      - edumentor-network
+
+  # Python AI Server (통합)
+  python-server:
+    build:
+      context: ./python-server
+      dockerfile: Dockerfile
+    container_name: edumentor-python
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./python-server/.env
+    environment:
+      - UPSTAGE_API_KEY=${UPSTAGE_API_KEY}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - DATABASE_URL=postgresql://admin:password@postgres:5432/edumentor
+      - SHARED_UPLOAD_DIR=/app/shared/uploads
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-edumentor}
+    depends_on:
+      chromadb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    volumes:
+      - shared-uploads:/app/shared/uploads
+    networks:
+      - edumentor-network
+
+  # Spring Boot Backend
+  spring-backend:
+    build:
+      context: ./spring-server/paper
+      dockerfile: Dockerfile
+    container_name: edumentor-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/edumentor
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - PYTHON_AI_SERVICE_URL=http://python-server:8000
+      - FILE_UPLOAD_DIR=/app/shared/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      python-server:
+        condition: service_started
+    volumes:
+      - shared-uploads:/app/shared/uploads
+    networks:
+      - edumentor-network
+    # ✨ 중요: 프런트엔드가 http://localhost:3000 에서 접근하므로,
+    # Spring Backend 코드에 반드시 CORS 설정을 추가해야 합니다.
+    # 허용 출처: http://localhost:3000
+
+  # ⭐️ React/TSX Frontend (개발 모드)
+  frontend:
+    build:
+      context: ./404-NOT-FOUND-Frontend
+      #dockerfile: Dockerfile.dev # ⬅️ 개발용 Dockerfile.dev 파일을 이 경로에 생성해야 함
+      dockerfile: Dockerfile
+    container_name: edumentor-frontend
+    ports:
+      # 로컬 3000번 포트를 Vite 설정 포트(4000)에 연결
+      - "4000:4000"
+    volumes:
+      # ⬅️ 소스 코드 마운트 (로컬 변경 사항 즉시 반영)
+      - ./404-NOT-FOUND-Frontend:/app:delegated
+      # ⬅️ node_modules 격리 (호스트-컨테이너 충돌 방지)
+      - /app/node_modules
+    environment:
+      # Vite 서버가 컨테이너 외부에서 접근 가능하도록 바인딩 주소 설정 (필수)
+      - VITE_HOST=0.0.0.0
+      - NODE_ENV=development
+    depends_on:
+      # 백엔드가 시작된 후 프런트엔드를 시작 (API 호출 보장)
+      spring-backend:
+        condition: service_started
+    networks:
+      - edumentor-network
+
+volumes:
+  postgres_data:
+    name: edumentor_postgres_data
+  chroma_data:
+    name: edumentor_chroma_data
+  shared-uploads:
+    name: edumentor_shared_uploads
+
+networks:
+  edumentor-network:
+    name: edumentor-network
+    driver: bridge

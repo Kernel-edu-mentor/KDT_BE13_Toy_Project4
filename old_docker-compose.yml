@@ -1,5 +1,3 @@
-version: '3.8'
-
 name: edumentor
 
 services:
@@ -35,11 +33,6 @@ services:
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - edumentor-network
 
@@ -51,15 +44,20 @@ services:
     container_name: edumentor-python
     ports:
       - "8000:8000"
+    env_file:
+      - ./python-server/.env
     environment:
       - UPSTAGE_API_KEY=${UPSTAGE_API_KEY}
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - DATABASE_URL=postgresql://admin:password@postgres:5432/edumentor
-      - SHARED_UPLOAD_DIR=/app/shared/uploads  # 공유 디렉토리 경로
+      - SHARED_UPLOAD_DIR=/app/shared/uploads
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-edumentor}
     depends_on:
       chromadb:
-        condition: service_healthy
+        condition: service_started
       postgres:
         condition: service_healthy
     volumes:
@@ -70,7 +68,7 @@ services:
   # Spring Boot Backend
   spring-backend:
     build:
-      context: ./spring-backend
+      context: ./spring-server/paper
       dockerfile: Dockerfile
     container_name: edumentor-backend
     ports:
@@ -89,6 +87,28 @@ services:
         condition: service_started
     volumes:
       - shared-uploads:/app/shared/uploads  # ✨ 공유 볼륨 마운트 (Python과 동일)
+    networks:
+      - edumentor-network
+
+# React/TSX Frontend (개발 모드)
+  frontend:
+    build:
+      context: ./404-NOT-FOUND-Frontend
+      dockerfile: Dockerfile.dev # ⬅️ 개발용 Dockerfile 사용
+    container_name: edumentor-frontend
+    ports:
+      - "3000:3000"  # 로컬 3000번 포트를 컨테이너의 3000번 포트에 연결
+    volumes:
+      # ⬅️ 중요: 소스 코드 마운트
+      - ./404-NOT-FOUND-Frontend:/app
+      # ⬅️ node_modules를 호스트에서 격리하여 충돌 방지
+      - /app/node_modules
+    environment:
+      # 개발 서버 설정에 필요한 환경 변수 (필요한 경우 추가)
+      - NODE_ENV=development
+    depends_on:
+      spring-backend:
+        condition: service_started
     networks:
       - edumentor-network
 

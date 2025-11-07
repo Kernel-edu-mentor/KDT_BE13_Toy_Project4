@@ -1,0 +1,21 @@
+# 개발용 Dockerfile (Dockerfile.dev)
+FROM node:20-alpine
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 패키지 파일 복사
+COPY package.json package-lock.json ./
+
+# 의존성 설치
+RUN npm install
+
+# 소스 코드 복사
+COPY . .
+
+# 프런트엔드 개발 서버 포트 노출 (일반적으로 3000번)
+EXPOSE 4000
+
+# 개발 서버 실행
+# 'npm run start' 명령은 프로젝트에 맞게 수정하세요.
+CMD ["npm", "run", "dev"]
