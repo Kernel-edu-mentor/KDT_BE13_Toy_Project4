@@ -47,14 +47,10 @@ services:
     env_file:
       - ./python-server/.env
     environment:
-      - UPSTAGE_API_KEY=${UPSTAGE_API_KEY}
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - DATABASE_URL=postgresql://admin:password@postgres:5432/edumentor
       - SHARED_UPLOAD_DIR=/app/shared/uploads
-      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
-      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
-      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-edumentor}
     depends_on:
       chromadb:
         condition: service_started
