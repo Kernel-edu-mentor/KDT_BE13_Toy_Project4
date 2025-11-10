@@ -6,7 +6,7 @@ import logging, time
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/problems", tags=["Problems"])
+router = APIRouter()
 
 
 @router.post("/generate", response_model=ProblemResponse)

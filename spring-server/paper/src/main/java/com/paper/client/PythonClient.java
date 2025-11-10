@@ -52,7 +52,7 @@ public class PythonClient {
                 request.getMaterialId(), request.getFilePath());
 
         return pythonWebClient.post()
-                .uri("/qa/qa/upload")
+                .uri("/qa/upload")
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, clientResponse ->
@@ -82,7 +82,7 @@ public class PythonClient {
         log.info("Calling Python QA service : material = {}, quesion = {}", request.getMaterialId(), request.getQuestion());
 
         return pythonWebClient.post()
-                .uri("/qa/qa/ask")
+                .uri("/qa/ask")
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(MaterialUploadRequest.QAResponse.class)
@@ -104,7 +104,7 @@ public class PythonClient {
                 request.getMaterialId(), request.getDifficulty(), request.getProblemCount());
 
         return pythonWebClient.post()
-                .uri("/problems/problems/generate")
+                .uri("/problems/generate")
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, clientResponse ->
@@ -135,7 +135,7 @@ public class PythonClient {
         );
 
         return pythonWebClient.post()
-                .uri("/problems/problems/check-answer")
+                .uri("/problems/check-answer")
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, clientResponse ->

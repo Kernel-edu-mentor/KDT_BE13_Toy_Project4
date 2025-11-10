@@ -10,7 +10,7 @@ from shared.chroma_client import chroma_client
 from shared.upstage_client import upstage_client
 from config import settings
 
-router = APIRouter(prefix="/qa", tags=["QA"])
+router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
