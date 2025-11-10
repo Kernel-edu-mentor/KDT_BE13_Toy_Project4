@@ -15,8 +15,8 @@ const Index = () => {
   const [user, setUser] = useState<User | null>(null);
 
   const handleKakaoLogin = () => {
-    const KAKAO_REST_API_KEY = "8bb25bd73474a68ce3fed3233542b7b0";
-    const KAKAO_REDIRECT_URI = "http://localhost:4000/auth/kakao/callback";
+    const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY;
+    const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI;
     const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=${KAKAO_REST_API_KEY}&redirect_uri=${KAKAO_REDIRECT_URI}`;
     window.location.href = kakaoAuthUrl;
   };

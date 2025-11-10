@@ -81,7 +81,7 @@ const MainLayout = () => {
             onClick={() => navigate("/")}
             className="flex items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md px-1 py-1"
           >
-            <Sparkles className="text-accent" size={24} />
+            <img src="/logo.png" alt="AI Mentor Logo" className="w-8 h-8" />
             <span className="text-xl font-bold">AI MENTOR</span>
           </button>
           
