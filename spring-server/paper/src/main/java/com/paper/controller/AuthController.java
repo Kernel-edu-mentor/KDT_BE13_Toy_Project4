@@ -89,7 +89,31 @@ public class AuthController {
         session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 SecurityContextHolder.getContext());
 
+        // 4. 로그아웃 시 사용할 수 있도록 accessToken을 세션에 저장
+        session.setAttribute("kakao_access_token", accessToken);
+
         return ResponseEntity.ok(LoginResponse.of(session.getId(), userResponse));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest httpRequest) {
+        HttpSession session = httpRequest.getSession(false);
+
+        if (session != null) {
+            // 카카오 로그아웃 처리
+            String accessToken = (String) session.getAttribute("kakao_access_token");
+            if (accessToken != null) {
+                kakaoService.logout(accessToken);
+            }
+
+            // 세션 무효화
+            session.invalidate();
+        }
+
+        // SecurityContext 정리
+        SecurityContextHolder.clearContext();
+
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/me")

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Sparkles, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logout } from "@/lib/api";
 
 interface User {
   id: number;
@@ -52,18 +53,23 @@ const MainLayout = () => {
     checkLoginStatus();
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    // sessionStorage에서 모든 인증 관련 데이터 제거
-    sessionStorage.removeItem("ai-mentor-user");
-    sessionStorage.removeItem("ai-mentor-session");
+  const handleLogout = async () => {
+    // 백엔드 세션 정리 및 sessionStorage 정리
+    await logout();
+
+    // 추가 세션 데이터 정리
     sessionStorage.removeItem("ai-mentor-material-id");
     sessionStorage.removeItem("qa-last-chat-id");
-    
+
     setIsLoggedIn(false);
     setUser(null);
 
-    // 메인으로 이동하며 로그인 버튼에서 카카오 인증으로 연결
-    window.location.href = "/";
+    // 카카오 계정 로그아웃 페이지로 리다이렉트
+    const kakaoRestApiKey = import.meta.env.VITE_KAKAO_REST_API_KEY;
+    const logoutRedirectUri = import.meta.env.VITE_KAKAO_LOGOUT_REDIRECT_URI;
+    const kakaoLogoutUrl = `https://kauth.kakao.com/oauth/logout?client_id=${kakaoRestApiKey}&logout_redirect_uri=${logoutRedirectUri}`;
+
+    window.location.href = kakaoLogoutUrl;
   };
 
   return (

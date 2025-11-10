@@ -93,27 +93,17 @@ services:
     # Spring Backend 코드에 반드시 CORS 설정을 추가해야 합니다.
     # 허용 출처: http://localhost:3000
 
-  # ⭐️ React/TSX Frontend (개발 모드)
+  # ⭐️ React/TSX Frontend (배포 모드)
   frontend:
     build:
       context: ./404-NOT-FOUND-Frontend
-      #dockerfile: Dockerfile.dev # ⬅️ 개발용 Dockerfile.dev 파일을 이 경로에 생성해야 함
       dockerfile: Dockerfile
     container_name: edumentor-frontend
     ports:
-      # 로컬 3000번 포트를 Vite 설정 포트(4000)에 연결
-      - "4000:4000"
-    volumes:
-      # ⬅️ 소스 코드 마운트 (로컬 변경 사항 즉시 반영)
-      - ./404-NOT-FOUND-Frontend:/app:delegated
-      # ⬅️ node_modules 격리 (호스트-컨테이너 충돌 방지)
-      - /app/node_modules
+      - "4000:80"   # 외부 4000 → 내부 Nginx 80
     environment:
-      # Vite 서버가 컨테이너 외부에서 접근 가능하도록 바인딩 주소 설정 (필수)
-      - VITE_HOST=0.0.0.0
-      - NODE_ENV=development
+      - NODE_ENV=production
     depends_on:
-      # 백엔드가 시작된 후 프런트엔드를 시작 (API 호출 보장)
       spring-backend:
         condition: service_started
     networks:

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 
-const KAKAO_REST_API_KEY = "8bb25bd73474a68ce3fed3233542b7b0";
-const KAKAO_REDIRECT_URI = "http://localhost:4000/auth/kakao/callback";
+const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY;
+const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI;
 
 const KakaoIcon = () => (
   <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-400">

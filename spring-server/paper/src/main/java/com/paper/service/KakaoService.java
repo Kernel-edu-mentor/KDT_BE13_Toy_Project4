@@ -129,6 +129,31 @@ public class KakaoService {
         }
     }
 
+    public void logout(String accessToken) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + accessToken);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://kapi.kakao.com/v1/user/logout",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("카카오 로그아웃 성공");
+            } else {
+                log.warn("카카오 로그아웃 실패 - Status: {}", response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("카카오 로그아웃 중 오류 발생: {}", e.getMessage(), e);
+            // 로그아웃 실패해도 세션은 무효화되어야 하므로 예외를 던지지 않음
+        }
+    }
+
     @Getter
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TokenResponse {

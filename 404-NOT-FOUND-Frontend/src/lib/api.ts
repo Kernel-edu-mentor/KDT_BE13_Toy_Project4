@@ -114,4 +114,17 @@ export async function postForm<T>(path: string, formData: FormData, init?: Reque
   });
 }
 
+export async function logout() {
+  try {
+    await postJson('/auth/logout', {});
+  } catch (error) {
+    // 로그아웃 요청 실패해도 로컬 데이터는 정리
+    console.error('Logout request failed:', error);
+  } finally {
+    // 로컬 세션 데이터 정리
+    sessionStorage.removeItem('ai-mentor-user');
+    sessionStorage.removeItem('ai-mentor-session');
+  }
+}
+
 export { ApiError };
