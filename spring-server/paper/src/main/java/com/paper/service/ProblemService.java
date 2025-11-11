@@ -4,6 +4,7 @@ import com.paper.domain.Material;
 import com.paper.domain.Problem;
 import com.paper.dto.client.ProblemAnswerRequest;
 import com.paper.dto.client.ProblemListDto;
+import com.paper.dto.client.ProblemQARequest;
 import com.paper.dto.client.ProblemRequest;
 import com.paper.dto.client.ProblemResponse;
 import com.paper.dto.client.python.AnswerRequestToPython;
@@ -43,6 +44,7 @@ public class ProblemService {
                     List<Problem> problems = problemResponse.getProblems().stream()
                             .map(problemDto -> {
                                 Problem problem = Problem.from(material, response.getDifficulty(), problemDto);
+
                                 // QA 기반 생성인 경우 topic 설정
                                 if (request.getTopic() != null) {
                                     problem = Problem.builder()
@@ -114,6 +116,92 @@ public class ProblemService {
                 .filter(topic -> topic != null && !topic.isEmpty())
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    // QA 기반 문제 생성 시 키워드를 topic으로 저장하는 메서드
+    public Mono<Void> saveProblemsWithKeywords(ProblemRequest request, ProblemResponseToPython response, List<String> keywords) {
+        return Mono.fromCallable(() -> {
+                    Material material = materialService.findById(request.getMaterialId());
+                    ProblemResponse problemResponse = ProblemResponse.from(response);
+
+                    // 키워드 리스트를 하나의 문자열로 결합 (예: "Java, Spring, REST API")
+                    String topic = keywords != null && !keywords.isEmpty()
+                        ? String.join(", ", keywords)
+                        : null;
+
+                    List<Problem> problems = problemResponse.getProblems().stream()
+                            .map(problemDto -> {
+                                Problem problem = Problem.from(material, response.getDifficulty(), problemDto);
+
+                                // topic 설정
+                                if (topic != null) {
+                                    problem = Problem.builder()
+                                            .id(problem.getId())
+                                            .material(problem.getMaterial())
+                                            .difficulty(problem.getDifficulty())
+                                            .problemType(problem.getProblemType())
+                                            .question(problem.getQuestion())
+                                            .answer(problem.getAnswer())
+                                            .hints(problem.getHints())
+                                            .testCases(problem.getTestCases())
+                                            .topic(topic)
+                                            .createdAt(problem.getCreatedAt())
+                                            .build();
+                                }
+                                return problem;
+                            })
+                            .toList();
+
+                    problemRepository.saveAll(problems);
+                    log.info("Saved {} problems with topic '{}' for material {}",
+                        response.getGeneratedCount(), topic, request.getMaterialId());
+                    return null;
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .then();
+    }
+
+    // QA 기반 문제 생성 시 키워드를 topic으로 저장하는 메서드 (ProblemQARequest 오버로드)
+    public Mono<Void> saveProblemsWithKeywords(ProblemQARequest request, ProblemResponseToPython response, List<String> keywords) {
+        return Mono.fromCallable(() -> {
+                    Material material = materialService.findById(request.getMaterialId());
+                    ProblemResponse problemResponse = ProblemResponse.from(response);
+
+                    // 키워드 리스트를 하나의 문자열로 결합 (예: "Java, Spring, REST API")
+                    String topic = keywords != null && !keywords.isEmpty()
+                        ? String.join(", ", keywords)
+                        : null;
+
+                    List<Problem> problems = problemResponse.getProblems().stream()
+                            .map(problemDto -> {
+                                Problem problem = Problem.from(material, response.getDifficulty(), problemDto);
+
+                                // topic 설정
+                                if (topic != null) {
+                                    problem = Problem.builder()
+                                            .id(problem.getId())
+                                            .material(problem.getMaterial())
+                                            .difficulty(problem.getDifficulty())
+                                            .problemType(problem.getProblemType())
+                                            .question(problem.getQuestion())
+                                            .answer(problem.getAnswer())
+                                            .hints(problem.getHints())
+                                            .testCases(problem.getTestCases())
+                                            .topic(topic)
+                                            .createdAt(problem.getCreatedAt())
+                                            .build();
+                                }
+                                return problem;
+                            })
+                            .toList();
+
+                    problemRepository.saveAll(problems);
+                    log.info("Saved {} problems with topic '{}' for material {}",
+                        response.getGeneratedCount(), topic, request.getMaterialId());
+                    return null;
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .then();
     }
 
     public AnswerRequestToPython getRequestAnswer(Long id, ProblemAnswerRequest request) {

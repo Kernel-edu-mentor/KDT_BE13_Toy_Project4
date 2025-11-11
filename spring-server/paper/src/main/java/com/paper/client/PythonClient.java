@@ -1,12 +1,7 @@
 package com.paper.client;
 
 import com.paper.dto.TestResponse;
-import com.paper.dto.client.python.MaterialUploadRequest;
-import com.paper.dto.client.python.MaterialUploadResponse;
-import com.paper.dto.client.python.AnswerRequestToPython;
-import com.paper.dto.client.python.AnswerResponseToPython;
-import com.paper.dto.client.python.ProblemRequestToPython;
-import com.paper.dto.client.python.ProblemResponseToPython;
+import com.paper.dto.client.python.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
@@ -148,10 +143,35 @@ public class PythonClient {
                 .bodyToMono(AnswerResponseToPython.class)
                 .timeout(Duration.ofSeconds(30))
                 .doOnSuccess(response ->
-                        log.info("answer service responsed")
+                        log.info("answer service response")
                 )
                 .doOnError(error ->
                         log.error("Generated failed: Type={}, Message={}", error.getClass().getSimpleName(), error.getMessage())
+                );
+    }
+
+    public Mono<KeywordResponseToPython> getKeyword(KeywordRequestToPython request) {
+
+        log.info("Calling Python getKeyword with qustion");
+
+        return pythonWebClient.post()
+                .uri("/problems/extract-keywords")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class) // 응답 본문을 String으로 읽기
+                                .flatMap(body -> {
+                                    log.error("Generated failed with status {}. Response body: {}", clientResponse.statusCode(), body); // 본문 로그 출력
+                                    return Mono.error(new RuntimeException("Generated failed: " + body));
+                                })
+                )
+                .bodyToMono(KeywordResponseToPython.class)
+                .timeout(Duration.ofSeconds(30))
+                .doOnSuccess(response ->
+                        log.info("keyword service response")
+                )
+                .doOnError(error ->
+                        log.error("extract-keyword failed: Type={}, Message={}", error.getClass().getSimpleName(), error.getMessage())
                 );
     }
 

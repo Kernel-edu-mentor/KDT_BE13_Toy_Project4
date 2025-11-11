@@ -393,39 +393,39 @@ const Dashboard = () => {
   };
 
   const handleGenerateProblemsFromQA = async () => {
+    console.log("=== 문제 생성 시작 ===");
+    console.log("selectedAnswerMessageId:", selectedAnswerMessageId);
+    console.log("materialId:", materialId);
+    console.log("selectedChatId:", selectedChatId);
+
     if (!selectedAnswerMessageId || !materialId) {
+      console.log("자료 선택 검증 실패");
       setQaError("자료를 선택해주세요.");
       return;
     }
 
-    // 질문과 답변 찾기
-    const answerMessage = messages.find((m) => m.id === selectedAnswerMessageId);
-    if (!answerMessage || answerMessage.role !== "assistant") {
-      setQaError("답변 메시지를 찾을 수 없습니다.");
-      return;
-    }
-
-    // 이전 사용자 메시지가 질문
-    const answerIndex = messages.findIndex((m) => m.id === selectedAnswerMessageId);
-    const questionMessage = answerIndex > 0 ? messages[answerIndex - 1] : null;
-    if (!questionMessage || questionMessage.role !== "user") {
-      setQaError("질문을 찾을 수 없습니다.");
+    if (!selectedChatId) {
+      console.log("채팅 ID 없음");
+      setQaError("채팅을 선택해주세요.");
       return;
     }
 
     try {
+      console.log("API 요청 전송 시작");
       setGeneratingFromQA(selectedAnswerMessageId);
       setShowDifficultyDialog(false);
       setQaError(null);
 
-      const response = await postJson("/problems/generated", {
-        materialId: Number(materialId),
-        difficulty: selectedDifficultyForQA,
-        problemCount: 5,
-        question: questionMessage.content,
-        answer: answerMessage.content,
-        topic: questionMessage.content, // 질문 내용을 주제로 사용
-      });
+      const requestBody = {
+          chatId: Number(selectedChatId),
+          materialId: Number(materialId),
+          difficulty: selectedDifficultyForQA,
+          problemCount: 5,
+      };
+      console.log("Request body:", requestBody);
+
+      const response = await postJson("/problems/generated/qa", requestBody);
+      console.log("API 응답:", response);
 
       // 문제 생성 성공 시 퀴즈 페이지로 이동
       navigate("/quiz");

@@ -6,12 +6,15 @@ import com.paper.dto.client.QAChatResponse;
 import com.paper.dto.client.QAChatUpdateRequest;
 import com.paper.dto.client.QASessionResponse;
 import com.paper.dto.client.python.MaterialUploadRequest;
+import com.paper.security.UserPrincipal;
 import com.paper.service.QAService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -38,61 +41,73 @@ public class QAController {
     @GetMapping("/sessions")
     public ResponseEntity<List<QASessionResponse>> getSessions(
             @RequestParam(value = "materialId", required = false) Long materialId,
-            @RequestParam(value = "chatId", required = false) Long chatId
-    ) {
-        List<QASessionResponse> sessions = qaService.getSessions(materialId, chatId);
+            @RequestParam(value = "chatId", required = false) Long chatId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+            ) {
+        Long userId = userPrincipal.getId();
+
+        List<QASessionResponse> sessions = qaService.getSessions(materialId, chatId, userId);
         return ResponseEntity.ok(sessions);
     }
 
     @GetMapping("/chats")
     public ResponseEntity<List<QAChatResponse>> getChats(
-            @RequestParam(value = "materialId", required = false) Long materialId
+            @RequestParam(value = "materialId", required = false) Long materialId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        List<QAChatResponse> chats = qaService.getChats(Optional.ofNullable(materialId));
+        Long userId = userPrincipal.getId();
+
+        List<QAChatResponse> chats = qaService.getChats(Optional.ofNullable(materialId), userId);
         return ResponseEntity.ok(chats);
     }
 
     @PostMapping("/chats")
     public ResponseEntity<QAChatResponse> createChat(
-            @Valid @RequestBody QAChatCreateRequest request
+            @Valid @RequestBody QAChatCreateRequest request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        QAChatResponse chat = qaService.createChat(request.getTitle(), request.getMaterialId());
+        Long userId = userPrincipal.getId();
+
+        QAChatResponse chat = qaService.createChat(request.getTitle(), request.getMaterialId(), userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(chat);
     }
 
     @PatchMapping("/chats/{chatId}")
     public ResponseEntity<QAChatResponse> updateChat(
             @PathVariable Long chatId,
-            @Valid @RequestBody QAChatUpdateRequest request
+            @Valid @RequestBody QAChatUpdateRequest request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        QAChatResponse chat = qaService.updateChatTitle(chatId, request.getTitle());
+        QAChatResponse chat = qaService.updateChatTitle(chatId, request.getTitle(), userPrincipal.getId());
         return ResponseEntity.ok(chat);
     }
 
     @GetMapping("/chats/{chatId}/sessions")
-    public ResponseEntity<List<QASessionResponse>> getChatSessions(@PathVariable Long chatId) {
-        List<QASessionResponse> sessions = qaService.getSessions(null, chatId);
+    public ResponseEntity<List<QASessionResponse>> getChatSessions(@PathVariable Long chatId,
+                                                                   @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        List<QASessionResponse> sessions = qaService.getSessions(null, chatId, userPrincipal.getId());
         return ResponseEntity.ok(sessions);
     }
 
     @DeleteMapping("/chats/{chatId}")
-    public ResponseEntity<Void> deleteChat(@PathVariable Long chatId) {
-        qaService.deleteChat(chatId);
+    public ResponseEntity<Void> deleteChat(@PathVariable Long chatId, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        qaService.deleteChat(chatId, userPrincipal.getId());
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/ask")
     public Mono<ResponseEntity<MaterialUploadRequest.QAResponse>> askQuestion (
-            @Valid @RequestBody MaterialUploadRequest.QARequest request
-            //@AuthenticationPrincipal UserDetails userDetails
+            @Valid @RequestBody MaterialUploadRequest.QARequest request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
 
-        log.info("User {} ask question for material {}: {}", "testuser", request.getMaterialId(), request.getQuestion());
+        log.info("User {} ask question for material {}: {}", userPrincipal.getId(), request.getMaterialId(), request.getQuestion());
 
         return pythonClient.askQuestion(request)
                 .doOnSuccess(response -> {
                     // DB에 저장 (비동기)
-                    qaService.saveSession("testuser", request, response);
+                    qaService.saveSession(userPrincipal.getId(), request, response);
                     log.info("QA response saved successfully");
                 })
                 .map(ResponseEntity::ok)

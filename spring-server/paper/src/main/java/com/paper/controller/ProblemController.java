@@ -1,17 +1,17 @@
 package com.paper.controller;
 
 import com.paper.client.PythonClient;
-import com.paper.dto.client.ProblemAnswerRequest;
-import com.paper.dto.client.ProblemListDto;
-import com.paper.dto.client.ProblemRequest;
-import com.paper.dto.client.ProblemResponse;
-import com.paper.dto.client.python.AnswerRequestToPython;
-import com.paper.dto.client.python.AnswerResponseToPython;
-import com.paper.dto.client.python.ProblemRequestToPython;
+import com.paper.dto.client.*;
+import com.paper.dto.client.python.*;
+import com.paper.security.UserPrincipal;
 import com.paper.service.ProblemService;
+import com.paper.service.QAService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -25,13 +25,52 @@ public class ProblemController {
 
     private final PythonClient pythonClient;
     private final ProblemService problemService;
+    private final QAService qaService;
+
+    /**
+     * 질문 내용 기반 문제 생성
+     */
+    @PostMapping("/generated/qa")
+    public Mono<ResponseEntity<ProblemResponse>> generateProblemWithQA(@RequestBody ProblemQARequest request,
+                                                                        @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        log.info("User {} generating QA-based {} problems for material {}",
+                userPrincipal.getUsername(),
+                request.getProblemCount(),
+                request.getMaterialId()
+        );
+
+        KeywordRequestToPython getKeywordRequest = qaService.getQAHistory(request, userPrincipal.getId());
+
+        return pythonClient.getKeyword(getKeywordRequest)
+                .flatMap(keywordResponse -> {
+                    // 키워드를 포함하여 문제 생성 요청
+                    return pythonClient.generateProblems(ProblemRequestToPython.from(request, keywordResponse))
+                            .flatMap(problemResponse -> {
+                                // 키워드를 topic으로 저장
+                                return problemService.saveProblemsWithKeywords(request, problemResponse, keywordResponse.getKeywords())
+                                        .thenReturn(problemResponse);
+                            });
+                })
+                .map(ProblemResponse::from)
+                .map(ResponseEntity::ok)
+                .onErrorResume(error -> {
+                    log.error("QA-based problems generation failed", error);
+                    return Mono.just(ResponseEntity.internalServerError().build());
+                });
+    }
 
     @PostMapping("/generated")
-    public Mono<ResponseEntity<ProblemResponse>> generatedProblems(@RequestBody ProblemRequest request
-                                  //@AuthenticationPrincipal UserDetails userDetails  // TODO : 추후 실제 회원정보 연결
-                                                                                    ) {
+    public Mono<ResponseEntity<ProblemResponse>> generatedProblems(@RequestBody ProblemRequest request,
+                                                                   @AuthenticationPrincipal UserPrincipal userPrincipal
+                                                                   ) {
 
-        log.info("User {} generating {} {} problems for material {}", "testUser", request.getProblemCount(), request.getDifficulty(), request.getMaterialId());
+        log.info("User {} generating {} {} problems for material {}",
+                userPrincipal.getUsername(),
+                request.getProblemCount(),
+                request.getDifficulty(),
+                request.getMaterialId()
+        );
 
         return pythonClient.generateProblems(ProblemRequestToPython.from(request))
                 .flatMap(response -> {
