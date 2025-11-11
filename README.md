@@ -1,4 +1,4 @@
-### 📄 [프로젝트 설명서 보기 (PDF)](./project-doc.pdf)
+### 📄 [프로젝트 설명서 다운로드 (PDF)](https://github.com/Kernel-edu-mentor/KDT_BE13_Toy_Project4/raw/dev/project-doc.pdf)
 
 ### 1-1. **네이밍 규칙 (Naming Rules)**
 
