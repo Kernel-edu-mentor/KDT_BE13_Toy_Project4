@@ -4,10 +4,13 @@ import com.paper.client.PythonClient;
 import com.paper.domain.Material;
 import com.paper.dto.client.ProblemAnswerRequest;
 import com.paper.dto.client.python.MaterialUploadRequest;
+import com.paper.security.UserPrincipal;
 import com.paper.service.MaterialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,16 +51,16 @@ public class MaterialController {
     @PostMapping("/upload")
     public Mono<ResponseEntity<ProblemAnswerRequest.MaterialResponse>> uploadMaterial (
             @RequestParam("file") MultipartFile file,
-            @RequestParam("title") String title
-            //@AuthenticationPrincipal UserDetails userDetails // TODO : 회원 로직 생성 후 연결
-    ) {
+            @RequestParam("title") String title,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+            ) {
 
-        log.info("User {} uploading : {}", "testuser", title);  // TODO : 실제 user 연결
+        log.info("User {} uploading : {}", userPrincipal.getUsername(), title);
 
         try {
 
             // 1. 서비스에 전체 업로드 로직 위임 (파일 I/O + DB 저장)
-            Material material = materialService.uploadAndCreateMaterial("user", file, title);
+            Material material = materialService.uploadAndCreateMaterial(userPrincipal.getId(), file, title);
 
             // 2. 외부 호출용 DTO로 변환
             MaterialUploadRequest request = MaterialUploadRequest.from(

@@ -72,4 +72,19 @@ public class Problem {
                 .testCases(problemDto.getTestCases())
                 .build();
     }
+
+    public static Problem from(Problem problem, String topic) {
+        return Problem.builder()
+                .id(problem.getId())
+                .material(problem.getMaterial())
+                .difficulty(problem.getDifficulty())
+                .problemType(problem.getProblemType())
+                .question(problem.getQuestion())
+                .answer(problem.getAnswer())
+                .hints(problem.getHints())
+                .testCases(problem.getTestCases())
+                .topic(topic)
+                .createdAt(problem.getCreatedAt())
+                .build();
+    }
 }

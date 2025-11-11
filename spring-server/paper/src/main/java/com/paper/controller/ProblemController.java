@@ -48,7 +48,7 @@ public class ProblemController {
                     return pythonClient.generateProblems(ProblemRequestToPython.from(request, keywordResponse))
                             .flatMap(problemResponse -> {
                                 // 키워드를 topic으로 저장
-                                return problemService.saveProblemsWithKeywords(request, problemResponse, keywordResponse.getKeywords())
+                                return problemService.saveProblemsWithKeywords(request.getMaterialId(), problemResponse, keywordResponse.getKeywords())
                                         .thenReturn(problemResponse);
                             });
                 })
