@@ -1,11 +1,14 @@
 package com.paper.dto.client.python;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.paper.dto.client.ProblemQARequest;
 import com.paper.dto.client.ProblemRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Getter
 @Builder
@@ -23,17 +26,21 @@ public class ProblemRequestToPython {
     private Integer problemCount;
 
     @JsonProperty("learning_description")
-    private String learningDescription;
+    @Builder.Default
+    private String learningDescription = null;
 
     @JsonProperty("learning_topics")
     @Builder.Default
-    private String learningTopics = null;
+    private List<String> learningTopics = null;
 
-    @JsonProperty("question")
-    private String question;  // QA 질문
-
-    @JsonProperty("answer")
-    private String answer;  // QA 답변
+    public static ProblemRequestToPython from(ProblemQARequest problemRequest, KeywordResponseToPython topic) {
+        return ProblemRequestToPython.builder()
+                .materialId(problemRequest.getMaterialId())
+                .difficulty(problemRequest.getDifficulty())
+                .problemCount(problemRequest.getProblemCount())
+                .learningTopics(topic.getKeywords())
+                .build();
+    }
 
     public static ProblemRequestToPython from(ProblemRequest problemRequest) {
         return ProblemRequestToPython.builder()
@@ -41,9 +48,6 @@ public class ProblemRequestToPython {
                 .difficulty(problemRequest.getDifficulty())
                 .problemCount(problemRequest.getProblemCount())
                 .learningDescription(problemRequest.getLearningDescription())
-                .learningTopics(null)
-                .question(problemRequest.getQuestion())
-                .answer(problemRequest.getAnswer())
                 .build();
     }
 }

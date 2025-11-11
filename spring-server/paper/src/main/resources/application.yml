@@ -1,6 +1,8 @@
 spring:
   application:
     name: paper
+  config:
+    import: optional:classpath:application-secret.yml
   profiles:
     active: local  # 로컬 프로팔
 
@@ -67,10 +69,4 @@ logging:
     com.paper: INFO
     org.springframework.web: INFO
 
-# Kakao OAuth
-kakao:
-  rest-api-key: 8bb25bd73474a68ce3fed3233542b7b0
-  client-secret: 5IHps4HtmVhehdHZsZDztkx8C8FEVE8A
-  redirect-uri: http://localhost:4000/auth/kakao/callback
-  token-url: https://kauth.kakao.com/oauth/token
-  user-info-url: https://kapi.kakao.com/v2/user/me
+# Kakao OAuth - application-secret.yml에서 로드됨

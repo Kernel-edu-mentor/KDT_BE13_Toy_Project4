@@ -1,7 +1,15 @@
 from fastapi import APIRouter, HTTPException
-from paper_problem.models import ProblemRequest, ProblemResponse, AnswerCheckRequest, AnswerCheckResponse
+from paper_problem.models import (
+    ProblemRequest,
+    ProblemResponse,
+    AnswerCheckRequest,
+    AnswerCheckResponse,
+    KeywordRequest,
+    KeywordResponse
+)
 from paper_problem.workflow import problem_workflow
 from paper_problem.grading_workflow import grading_workflow
+from paper_problem.utils.keyword_extractor import keyword_extractor
 import logging, time
 
 logger = logging.getLogger(__name__)
@@ -121,3 +129,30 @@ async def get_difficulty_info():
             "target": "여러 개념 결합한 실무 프로젝트",
         },
     }
+
+
+@router.post("/extract-keywords", response_model=KeywordResponse)
+async def extract_keywords(request: KeywordRequest):
+    """질문 목록에서 핵심 키워드를 추출합니다"""
+    start_time = time.time()
+
+    logger.info(f"Extracting keywords from {len(request.questions)} questions")
+
+    try:
+        keywords = await keyword_extractor.extract_keywords(
+            questions=request.questions,
+            max_keywords=request.max_keywords
+        )
+
+        response_time = int((time.time() - start_time) * 1000)
+
+        logger.info(f"Keywords extracted: {keywords}, time={response_time}ms")
+
+        return KeywordResponse(
+            keywords=keywords,
+            response_time_ms=response_time
+        )
+
+    except Exception as e:
+        logger.error(f"Error extracting keywords: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

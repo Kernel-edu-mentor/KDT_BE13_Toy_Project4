@@ -86,4 +86,9 @@ public class UserService {
                 });
         return UserResponse.from(user);
     }
+
+    public User findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+    }
 }

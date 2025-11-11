@@ -37,3 +37,12 @@ class AnswerCheckResponse(BaseModel):
     rubric_scores: Optional[Dict] = None  # CODING용 루브릭 점수
     test_results: Optional[List[Dict]] = None  # CODING용 테스트 결과
     response_time_ms: int
+
+# 키워드 추출 관련 모델
+class KeywordRequest(BaseModel):
+    questions: List[str]  # 최근 질문 목록
+    max_keywords: int = 5  # 추출할 최대 키워드 수
+
+class KeywordResponse(BaseModel):
+    keywords: List[str]  # 추출된 키워드 목록
+    response_time_ms: int
