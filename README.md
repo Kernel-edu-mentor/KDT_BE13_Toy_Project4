@@ -1,3 +1,5 @@
+### 📄 [프로젝트 설명서 보기 (PDF)](./project-doc.pdf)
+
 ### 1-1. **네이밍 규칙 (Naming Rules)**
 
 - **변수 및 함수 이름**: CamelCase 사용 (ex: `getUserData`, `userInfo`)
