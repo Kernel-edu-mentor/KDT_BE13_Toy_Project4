@@ -201,6 +201,19 @@ const QuizPage = () => {
     }
   }, [materialId]);
 
+  // 인증 확인
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        await getJson("/auth/me");
+      } catch (error) {
+        // 로그인되지 않은 경우 홈으로 리다이렉트
+        navigate("/");
+      }
+    };
+    checkAuth();
+  }, [navigate]);
+
   useEffect(() => {
     fetchMaterials();
   }, []);

@@ -9,7 +9,6 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import MainLayout from "./components/layout/MainLayout";
 import QuizPage from "./pages/QuizPage";
-import KakaoCallback from "./pages/KakaoCallback";
 import KakaoLogoutCallback from "./pages/KakaoLogoutCallback";
 
 const queryClient = new QueryClient();
@@ -24,7 +23,6 @@ const App = () => (
           <Route element={<MainLayout />}>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/kakao/callback" element={<KakaoCallback />} />
             <Route path="/auth/kakao/logout/callback" element={<KakaoLogoutCallback />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/quiz" element={<QuizPage />} />
