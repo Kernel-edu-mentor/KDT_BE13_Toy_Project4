@@ -1,8 +1,5 @@
 import { Button } from "@/components/ui/button";
 
-const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY;
-const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI;
-
 const KakaoIcon = () => (
   <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-400">
     <svg
@@ -17,7 +14,7 @@ const KakaoIcon = () => (
 
 const Auth = () => {
   const handleKakaoLogin = () => {
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=${KAKAO_REST_API_KEY}&redirect_uri=${KAKAO_REDIRECT_URI}`;
+    const kakaoAuthUrl = `http://localhost:8080/oauth2/authorization/kakao`;
     window.location.href = kakaoAuthUrl;
   };
 

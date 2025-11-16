@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/api": {
         //target: "http://localhost:8080",
-          target: "http://spring-backend:8080",
+        target: "http://spring-backend:8080", // Docker 환경용
         changeOrigin: true,
       },
     },

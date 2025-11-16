@@ -54,6 +54,10 @@ python:
 # Server 설정 (대용량 파일 처리)
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        same-site: lax
   tomcat:
     max-swallow-size: 320MB  # Tomcat 버퍼
     connection-timeout: 1200000  # 20분
@@ -66,7 +70,9 @@ jwt:
 # Logging
 logging:
   level:
-    com.paper: INFO
-    org.springframework.web: INFO
+    com.paper: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
 
 # Kakao OAuth - application-secret.yml에서 로드됨

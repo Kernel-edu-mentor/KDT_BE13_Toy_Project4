@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { getJson } from "@/lib/api";
 
 interface User {
   id: number;
@@ -15,28 +16,24 @@ const Index = () => {
   const [user, setUser] = useState<User | null>(null);
 
   const handleKakaoLogin = () => {
-    const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY;
-    const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI;
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=${KAKAO_REST_API_KEY}&redirect_uri=${KAKAO_REDIRECT_URI}`;
-    window.location.href = kakaoAuthUrl;
+    window.location.href = "http://localhost:8080/oauth2/authorization/kakao";
   };
 
   useEffect(() => {
-    // sessionStorage에서 로그인 상태 확인
-    const userStr = sessionStorage.getItem("ai-mentor-user");
-    if (userStr) {
+    // 백엔드 세션 쿠키로 로그인 상태 확인
+    const checkAuthStatus = async () => {
       try {
-        const parsedUser: User = JSON.parse(userStr);
-        if (parsedUser && parsedUser.id) {
-          setIsLoggedIn(true);
-          setUser(parsedUser);
-        }
+        const userInfo = await getJson<User>("/auth/me");
+        setIsLoggedIn(true);
+        setUser(userInfo);
       } catch (error) {
-        console.error("사용자 정보 파싱 실패:", error);
-        sessionStorage.removeItem("ai-mentor-user");
-        sessionStorage.removeItem("ai-mentor-session");
+        // 로그인되지 않은 경우 (401 Unauthorized) 무시
+        setIsLoggedIn(false);
+        setUser(null);
       }
-    }
+    };
+
+    checkAuthStatus();
   }, []);
 
   return (
