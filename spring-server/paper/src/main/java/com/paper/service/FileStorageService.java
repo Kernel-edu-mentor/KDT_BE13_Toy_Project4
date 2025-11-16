@@ -51,7 +51,7 @@ public class FileStorageService {
 
             return absolutePath;
         } catch (IOException e) {
-            log.error("파일 저장 실패 : {}",originalFilename , e.getMessage());
+            log.error("파일 저장 실패 : {}, errMsg : {}",originalFilename , e.getMessage());
             throw new BusinessException(ErrorCode.FILE_STORAGE_FAILED);
 
         }
