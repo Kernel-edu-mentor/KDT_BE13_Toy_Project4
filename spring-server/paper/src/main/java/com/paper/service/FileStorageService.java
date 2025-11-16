@@ -1,6 +1,8 @@
 package com.paper.service;
 
 import com.paper.config.FileStorageConfig;
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -49,40 +51,36 @@ public class FileStorageService {
             return absolutePath;
         } catch (IOException e) {
             log.error("파일 저장 실패 : {}",originalFilename , e.getMessage());
-            throw new RuntimeException("파일 저장 실패 : " + originalFilename , e); // TODO : 추후 GlobalException 적용
+            throw new BusinessException(ErrorCode.FILE_STORAGE_FAILED);
         }
     }
 
     private void validateFile(MultipartFile file) {
 
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("파일을 찾을 수 없습니다.");  // TODO : 추후 GlobalException 적용
+            throw new BusinessException(ErrorCode.FILE_NOT_FOUND);
         }
 
         if (file.getSize() > fileConfig.getMaxSize()) {
-            throw new IllegalArgumentException(
-                    String.format("File size exceeds maximum: %d bytes", fileConfig.getMaxSize())
-            );  // TODO : 추후 GlobalException 적용
+            throw new BusinessException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
 
         String filename = StringUtils.cleanPath(file.getOriginalFilename());
         String extension = getFileExtension(filename);
 
         if (!fileConfig.getAllowedExtensions().contains(extension.toLowerCase())) {
-            throw new IllegalArgumentException(
-                    String.format("File extension not allowed: %s", extension)
-            );  // TODO : 추후 GlobalException 적용
+            throw new BusinessException(ErrorCode.FILE_EXTENSION_NOT_ALLOWED);
         }
 
         if (filename.contains("..")) {
-            throw new IllegalArgumentException("Invalid path sequence in filename");  // TODO : 추후 GlobalException 적용
+            throw new BusinessException(ErrorCode.INVALID_FILE_PATH);
         }
     }
 
     private String getFileExtension(String filename) {
         int lastDotIndex = filename.lastIndexOf('.');
         if (lastDotIndex == -1) {
-            throw new IllegalArgumentException("File has no extension");  // TODO : 추후 GlobalException 적용
+            throw new BusinessException(ErrorCode.FILE_NO_EXTENSION);
         }
         return filename.substring(lastDotIndex + 1);
     }
@@ -92,6 +90,6 @@ public class FileStorageService {
         if ("pdf".equals(extension)) {
             return "PDF";
         }
-        throw new IllegalArgumentException("Unsupported file type: " + extension);  // TODO : 추후 GlobalException 적용
+        throw new BusinessException(ErrorCode.UNSUPPORTED_FILE_TYPE);
     }
 }

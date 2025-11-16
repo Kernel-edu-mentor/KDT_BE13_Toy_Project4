@@ -1,5 +1,7 @@
 package com.paper.service;
 
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import com.paper.domain.User;
 import com.paper.dto.user.LoginRequest;
 import com.paper.dto.user.UserRegistrationRequest;
@@ -53,19 +55,19 @@ public class UserService {
         );
 
         if (!(authentication.getPrincipal() instanceof UserPrincipal)) {
-            throw new InvalidCredentialsException();
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
         return authentication;
     }
 
     public UserResponse getUserProfile(String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(InvalidCredentialsException::new);
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
         return UserResponse.from(user);
     }
 
     public User findById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }

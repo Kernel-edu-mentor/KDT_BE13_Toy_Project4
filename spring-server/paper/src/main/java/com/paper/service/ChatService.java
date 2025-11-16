@@ -1,5 +1,7 @@
 package com.paper.service;
 
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import com.paper.domain.Material;
 import com.paper.domain.QAChat;
 import com.paper.domain.User;
@@ -18,9 +20,6 @@ import java.util.List;
 @Transactional
 @RequiredArgsConstructor
 public class ChatService {
-
-    private static final String CHAT_NOT_FOUND = "존재하지 않는 채팅입니다.";
-    private static final String USER_MISMATCH = "회원 정보가 일치하지 않습니다.";
 
     private final QAChatRepository qaChatRepository;
     private final QARepository qaRepository;
@@ -59,7 +58,7 @@ public class ChatService {
 
     public QAChatResponse updateChatTitle(Long chatId, String title, Long userId) {
         QAChat chat = qaChatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException(CHAT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
 
         validateChatOwnership(chat, userId);
 
@@ -70,7 +69,7 @@ public class ChatService {
 
     public void deleteChat(Long chatId, Long userId) {
         QAChat chat = qaChatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException(CHAT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
 
         validateChatOwnership(chat, userId);
 
@@ -80,7 +79,7 @@ public class ChatService {
 
     private void validateChatOwnership(QAChat chat, Long userId) {
         if (!chat.getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException(USER_MISMATCH);
+            throw new BusinessException(ErrorCode.USER_MISMATCH);
         }
     }
 }

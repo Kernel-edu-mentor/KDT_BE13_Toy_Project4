@@ -1,5 +1,7 @@
 package com.paper.service;
 
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import com.paper.domain.Material;
 import com.paper.domain.Problem;
 import com.paper.dto.client.ProblemAnswerRequest;
@@ -74,7 +76,7 @@ public class ProblemService {
     }
 
     private Problem findById(Long id) {
-        return problemRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("데이터 조회 실패"));
+        return problemRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.PROBLEM_NOT_FOUND));
     }
 
     // 공통 문제 저장 로직
