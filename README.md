@@ -1,57 +1,130 @@
 ### 📄 [프로젝트 설명서 다운로드 (PDF)](https://github.com/Kernel-edu-mentor/KDT_BE13_Toy_Project4/raw/dev/project-doc.pdf)
 
-### 1-1. **네이밍 규칙 (Naming Rules)**
+---
 
-- **변수 및 함수 이름**: CamelCase 사용 (ex: `getUserData`, `userInfo`)
-- **클래스 이름**: PascalCase 사용 (ex: `UserProfile`, `ProductManager`)
-- **상수**: UPPER_SNAKE_CASE 사용 (ex: `MAX_RETRY_COUNT`)0
-- **파일 이름**: 소문자 및 hyphen(-) 사용 (ex: `user-controller.js`, `app-config.ts`)
+# EduMentor AI - 학습 자료 기반 AI 문제 생성 및 Q&A 시스템
 
-### 1-2. **들여쓰기 및 공백 (Indentation & Spacing)**
+학습 자료(PDF)를 업로드하면 AI가 자동으로 문제를 생성하고, RAG 기반 Q&A 기능을 제공하는 풀스택 교육 플랫폼입니다.
 
-- **탭 크기**: Tabs
-- **라인 길이**: 80자 제한 권장
-- **함수 간 공백**: 함수와 함수 사이 한 줄 공백 유지
-- **중괄호 위치**: 중괄호는 한 줄 아래
-- (ex:
-    
-    `if (condition) {`
-    
-             `...`    
-    
-    `}`            ) 
-    
+## 주요 기능
 
-### 1-3. **주석 규칙 (Commenting Rules)**
+- **자료 업로드**: PDF 학습 자료 파싱 및 벡터 DB 저장
+- **AI 문제 생성**: 난이도별(초급/중급/고급) 자동 문제 생성
+- **RAG Q&A**: 업로드된 자료 기반 질의응답
+- **OAuth 인증**: Kakao OAuth2 로그인 지원
+- **자동 채점**: AI 기반 답안 평가 및 피드백
 
-- **함수 주석**: 함수 상단에 해당 함수의 목적, 입력값, 반환값 명시
-- **코드 설명 주석**: 코드가 복잡하거나 중요한 부분에 설명 추가
-- 단, 무분별한 주석은 제한
+## 기술 스택
 
-### 1-4. **코드 구조 (Code Structure)**
+### Backend - Spring Boot
+- Java 21, Spring Boot 3.5.7
+- Spring Security + OAuth2 Client
+- Spring Data JPA + PostgreSQL
+- WebFlux (Python 서버 통신)
 
-- **모듈화**: 관련 기능별로 코드를 모듈화 (ex: services, controllers, utils 등)
-    
-    ### 1-5. **Git 전략 & 커밋 컨벤션**
-    
-    - **브랜치 네이밍**
-        
-        ```
-        main       → 운영 배포용
-        develop    → 개발 통합
-        feature/*  → 기능 단위
-        fix/*      → 버그 수정
-        hotfix/*   → 긴급 수정
-        refactor/* -> 코드 리팩토링 
-        ```
-        
-    - **커밋 메시지**
-        
-        ```
-        [Feat] 회원가입 API 추가
-        [Fix] 로그인 비밀번호 검증 오류 수정
-        [Refactor] JWT 토큰 검증 로직 분리
-        [Chore] logback 설정 변경
-        ```
-        
-    
+### AI Engine - Python FastAPI
+- FastAPI + LangChain + LangGraph
+- ChromaDB (벡터 DB)
+- Upstage API (LLM + Embeddings + Document Parse)
+
+### Frontend - React
+- React 18 + TypeScript + Vite
+- TailwindCSS + Radix UI + shadcn/ui
+- TanStack Query (상태 관리)
+
+## 프로젝트 구조
+
+```
+├── spring-server/          # Spring Boot 백엔드
+│   └── paper/
+│       ├── controller/     # REST API 엔드포인트
+│       ├── service/        # 비즈니스 로직
+│       ├── domain/         # JPA 엔티티
+│       └── security/       # OAuth2 + Security 설정
+├── python-server/          # Python AI 엔진
+│   ├── paper_qa/          # RAG Q&A 모듈
+│   ├── paper_problem/     # 문제 생성 모듈
+│   └── shared/            # ChromaDB/Upstage 클라이언트
+└── 404-NOT-FOUND-Frontend/ # React 프론트엔드
+```
+
+## 설치 및 실행
+
+### 사전 요구사항
+- Java 21
+- Python 3.13
+- Node.js 18+
+- PostgreSQL
+- ChromaDB (Docker)
+
+### Python AI 서버
+```bash
+cd python-server
+conda create -n edumentor python=3.13 -y
+conda activate edumentor
+pip install -r requirements.txt
+python main.py
+```
+
+### Spring Boot 서버
+```bash
+cd spring-server/paper
+./gradlew bootRun
+```
+
+### Frontend
+```bash
+cd 404-NOT-FOUND-Frontend
+npm install
+npm run dev
+```
+
+## API 엔드포인트
+
+### 학습 자료
+- `POST /api/materials/upload` - PDF 업로드
+- `GET /api/materials/{id}` - 자료 조회
+
+### 문제 생성
+- `POST /api/problems/generate` - 난이도별 문제 생성
+- `POST /api/problems/answer` - 답안 제출 및 채점
+
+### Q&A
+- `POST /api/qa/sessions` - Q&A 세션 생성
+- `POST /api/qa/chat` - 질문 전송
+
+### 인증
+- `POST /api/auth/register` - 회원가입
+- `POST /api/auth/login` - 로그인
+- `GET /oauth2/authorization/kakao` - Kakao OAuth
+
+## 환경 변수
+
+### Python Server (.env)
+```
+UPSTAGE_API_KEY=<API_KEY>
+CHROMA_HOST=localhost
+CHROMA_PORT=8001
+```
+
+### Spring Boot (application.yml)
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/edumentor
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: <CLIENT_ID>
+            client-secret: <CLIENT_SECRET>
+```
+
+## 팀 구성
+
+- **Backend Team**: Spring Boot API, OAuth2, JPA
+- **AI Team 1**: RAG Q&A 파이프라인
+- **AI Team 2**: 문제 생성 파이프라인
+- **Frontend Team**: React UI/UX
+
