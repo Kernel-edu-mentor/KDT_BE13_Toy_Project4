@@ -1,5 +1,7 @@
 package com.paper.service;
 
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import com.paper.domain.Material;
 import com.paper.domain.QAChat;
 import com.paper.domain.QASession;
@@ -23,10 +25,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class QAService {
 
-    private static final String CHAT_NOT_FOUND = "존재하지 않는 채팅입니다.";
-    private static final String CHAT_ACCESS_DENIED = "해당 채팅에 접근할 권한이 없습니다.";
-    private static final String MATERIAL_ACCESS_DENIED = "해당 자료에 접근할 권한이 없습니다.";
-
     private final QAChatRepository qaChatRepository;
     private final QARepository qaRepository;
     private final MaterialService materialService;
@@ -34,13 +32,13 @@ public class QAService {
 
     private void validateChatOwnership(QAChat chat, Long userId) {
         if (!chat.getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException(CHAT_ACCESS_DENIED);
+            throw new BusinessException(ErrorCode.CHAT_ACCESS_DENIED);
         }
     }
 
     private void validateMaterialOwnership(Material material, Long userId) {
         if (!material.getUploadedBy().getId().equals(userId)) {
-            throw new IllegalArgumentException(MATERIAL_ACCESS_DENIED);
+            throw new BusinessException(ErrorCode.MATERIAL_ACCESS_DENIED);
         }
     }
 
@@ -52,7 +50,7 @@ public class QAService {
         QAChat chat = null;
         if (request.getChatId() != null) {
             chat = qaChatRepository.findById(request.getChatId())
-                    .orElseThrow(() -> new IllegalArgumentException(CHAT_NOT_FOUND));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
         }
 
         QASession qaSession = QASession.builder()
@@ -75,7 +73,7 @@ public class QAService {
 
         if (chatId != null) {
             QAChat chat = qaChatRepository.findById(chatId)
-                    .orElseThrow(() -> new IllegalArgumentException(CHAT_NOT_FOUND));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
             validateChatOwnership(chat, userId);
             sessions = qaRepository.findByChatIdOrderByCreatedAtAsc(chatId);
         } else if (materialId != null) {
@@ -98,13 +96,13 @@ public class QAService {
         }
 
         QAChat chat = qaChatRepository.findById(request.getChatId())
-                .orElseThrow(() -> new IllegalArgumentException(CHAT_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
         validateChatOwnership(chat, userId);
 
         List<QASession> sessions = qaRepository.findByUserIdAndChatIdByCreatedAtDesc(userId, request.getChatId());
 
         if (sessions.isEmpty()) {
-            throw new IllegalArgumentException("해당 채팅에 QA 세션이 없습니다.");
+            throw new BusinessException(ErrorCode.QA_SESSION_NOT_FOUND);
         }
 
         return KeywordRequestToPython.from(sessions);
