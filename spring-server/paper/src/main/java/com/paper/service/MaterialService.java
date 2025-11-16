@@ -1,5 +1,7 @@
 package com.paper.service;
 
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import com.paper.domain.Material;
 import com.paper.domain.User;
 import com.paper.dto.client.ProblemAnswerRequest;
@@ -47,7 +49,7 @@ public class MaterialService {
 
         // 1. ID로 객체를 다시 로드
         Material material = materialRepository.findById(materialId)
-                .orElseThrow(() -> new IllegalArgumentException("Material not found: " + materialId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.MATERIAL_NOT_FOUND));
 
         // 2. 로드된 객체의 필드를 변경합니다.
         material.setParseStatus(parseStatus);
@@ -57,8 +59,10 @@ public class MaterialService {
     }
 
     public Material findById(Long materialId) {
-        return materialRepository.findById(materialId)
-                .orElseThrow(() -> new IllegalArgumentException("Material not found: " + materialId));
+        Material material = materialRepository.findById(materialId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MATERIAL_NOT_FOUND));
+
+        return material;
     }
 
     @Transactional(readOnly = true)

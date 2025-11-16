@@ -1,5 +1,7 @@
 package com.paper.service;
 
+import com.paper.config.error.ErrorCode;
+import com.paper.config.error.exceprion.BusinessException;
 import com.paper.domain.User;
 import com.paper.dto.user.LoginRequest;
 import com.paper.dto.user.UserRegistrationRequest;
@@ -28,7 +30,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private final KakaoService kakaoService;
 
     @Transactional
     public UserResponse register(UserRegistrationRequest request) {
@@ -40,6 +41,7 @@ public class UserService {
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(request.resolveRole())
+                .provider("local")
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -53,42 +55,19 @@ public class UserService {
         );
 
         if (!(authentication.getPrincipal() instanceof UserPrincipal)) {
-            throw new InvalidCredentialsException();
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
         return authentication;
     }
 
     public UserResponse getUserProfile(String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(InvalidCredentialsException::new);
-        return UserResponse.from(user);
-    }
-
-    @Transactional
-    public UserResponse loginWithKakao(String accessToken) {
-        KakaoService.KakaoUserInfo kakaoUserInfo = kakaoService.getUserInfo(accessToken);
-        String kakaoId = "kakao_" + kakaoUserInfo.getId();
-        String username = kakaoUserInfo.getKakaoAccount() != null &&
-                kakaoUserInfo.getKakaoAccount().getEmail() != null
-                ? kakaoUserInfo.getKakaoAccount().getEmail()
-                : kakaoId;
-
-        User user = userRepository.findByUsername(username)
-                .orElseGet(() -> {
-                    log.info("카카오 로그인 신규 사용자 회원가입: {}", username);
-                    User newUser = User.builder()
-                            .username(username)
-                            .password(passwordEncoder.encode("kakao_" + kakaoUserInfo.getId())) // 임시 비밀번호
-                            .role(User.Role.STUDENT)
-                            .createdAt(LocalDateTime.now())
-                            .build();
-                    return userRepository.save(newUser);
-                });
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
         return UserResponse.from(user);
     }
 
     public User findById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }
