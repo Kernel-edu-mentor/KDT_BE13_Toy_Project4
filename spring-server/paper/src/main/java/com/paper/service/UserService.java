@@ -6,7 +6,6 @@ import com.paper.domain.User;
 import com.paper.dto.user.LoginRequest;
 import com.paper.dto.user.UserRegistrationRequest;
 import com.paper.dto.user.UserResponse;
-import com.paper.exception.InvalidCredentialsException;
 import com.paper.exception.UsernameAlreadyExistsException;
 import com.paper.repository.UserRepository;
 import com.paper.security.UserPrincipal;
