@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -30,9 +31,9 @@ public class FileStorageService {
 
         validateFile(file);
 
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+        String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
         String fileExtension = getFileExtension(originalFilename);
-        String storedFilename = UUID.randomUUID().toString() + "." + fileExtension;
+        String storedFilename = UUID.randomUUID() + "." + fileExtension;
 
         try {
             Path uploadPath = Paths.get(fileConfig.getUploadDir());
@@ -52,6 +53,7 @@ public class FileStorageService {
         } catch (IOException e) {
             log.error("파일 저장 실패 : {}",originalFilename , e.getMessage());
             throw new BusinessException(ErrorCode.FILE_STORAGE_FAILED);
+
         }
     }
 
@@ -65,7 +67,7 @@ public class FileStorageService {
             throw new BusinessException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
 
-        String filename = StringUtils.cleanPath(file.getOriginalFilename());
+        String filename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
         String extension = getFileExtension(filename);
 
         if (!fileConfig.getAllowedExtensions().contains(extension.toLowerCase())) {

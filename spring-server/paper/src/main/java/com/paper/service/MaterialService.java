@@ -59,7 +59,6 @@ public class MaterialService {
     }
 
     public Material findById(Long materialId) {
-
         Material material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MATERIAL_NOT_FOUND));
 
