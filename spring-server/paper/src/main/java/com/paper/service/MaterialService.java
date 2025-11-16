@@ -57,11 +57,8 @@ public class MaterialService {
     }
 
     public Material findById(Long materialId) {
-
-        Material material = materialRepository.findById(materialId)
+        return materialRepository.findById(materialId)
                 .orElseThrow(() -> new IllegalArgumentException("Material not found: " + materialId));
-
-        return material;
     }
 
     @Transactional(readOnly = true)

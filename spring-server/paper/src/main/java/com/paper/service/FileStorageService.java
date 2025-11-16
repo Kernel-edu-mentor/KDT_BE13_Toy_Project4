@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -28,9 +29,9 @@ public class FileStorageService {
 
         validateFile(file);
 
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+        String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
         String fileExtension = getFileExtension(originalFilename);
-        String storedFilename = UUID.randomUUID().toString() + "." + fileExtension;
+        String storedFilename = UUID.randomUUID() + "." + fileExtension;
 
         try {
             Path uploadPath = Paths.get(fileConfig.getUploadDir());
@@ -48,7 +49,7 @@ public class FileStorageService {
 
             return absolutePath;
         } catch (IOException e) {
-            log.error("파일 저장 실패 : {}",originalFilename , e.getMessage());
+            log.error("파일 저장 실패 : {}, errorMsg : {}",originalFilename , e.getMessage());
             throw new RuntimeException("파일 저장 실패 : " + originalFilename , e); // TODO : 추후 GlobalException 적용
         }
     }
@@ -65,7 +66,7 @@ public class FileStorageService {
             );  // TODO : 추후 GlobalException 적용
         }
 
-        String filename = StringUtils.cleanPath(file.getOriginalFilename());
+        String filename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
         String extension = getFileExtension(filename);
 
         if (!fileConfig.getAllowedExtensions().contains(extension.toLowerCase())) {

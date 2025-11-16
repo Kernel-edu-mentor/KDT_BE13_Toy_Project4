@@ -6,12 +6,10 @@ import com.paper.dto.client.python.*;
 import com.paper.security.UserPrincipal;
 import com.paper.service.ProblemService;
 import com.paper.service.QAService;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -47,7 +45,7 @@ public class ProblemController {
                     // 키워드를 포함하여 문제 생성 요청
                     return pythonClient.generateProblems(ProblemRequestToPython.from(request, keywordResponse))
                             .flatMap(problemResponse -> {
-                                // 키워드를 topic으로 저장
+                                // 키워드를 topic 으로 저장
                                 return problemService.saveProblemsWithKeywords(request.getMaterialId(), problemResponse, keywordResponse.getKeywords())
                                         .thenReturn(problemResponse);
                             });
@@ -73,10 +71,9 @@ public class ProblemController {
         );
 
         return pythonClient.generateProblems(ProblemRequestToPython.from(request))
-                .flatMap(response -> {
-                    return problemService.saveProblems(request, response)
-                            .thenReturn(response);
-                })
+                .flatMap(response -> problemService.saveProblems(request, response)
+                            .thenReturn(response)
+                )
                 .map(ProblemResponse::from)
                 .map(ResponseEntity::ok)
                 .onErrorResume(error -> {
